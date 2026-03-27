@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'screens/auth/auth_check.dart';
 import 'services/notification_service.dart';
-import 'services/database_helper.dart';
+import 'services/push_notification_service.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,106 +15,26 @@ void main() async {
   // === تهيئة Firebase مع الإعدادات الصحيحة ===
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  await NotificationService().init();
+  // === تفعيل Firestore Offline Persistence ===
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+  );
 
-  // === حذف الدكاترة القديمة بناءً على طلب المستخدم ===
-  await DatabaseHelper().recreateDoctorsTable();
+  if (!kIsWeb) {
+    // Run in background — never block app startup
+    NotificationService().init();
+    PushNotificationService().initialize();
+  }
 
-  // === إضافة الدكتور مجدي (البيانات الجديدة) ===
-  await DatabaseHelper().insertDoctor({
-    'name': 'Dr. Magdy Mohammad Fakhr Hussein',
-    'arName': 'د. مجدي محمد فخر حسين',
-    'speciality': 'Biotechnology & Analysis Specialist',
-    'arSpeciality': 'أخصائي تحاليل بيولوجية وتكنولوجيا حيوية',
-    'rating': '5.0',
-    'image': 'assets/images/dr_magdy.png',
-    'introduction':
-        'Highly qualified specialist with a PhD in Biotechnology from the University of Sadat City and an M.Sc. in Genetic Engineering & Biotechnology (GEBRI). Holds a Diploma in Biology Analysis from Al-Azhar University and a BSc in Chemistry & Physics from Cairo University. Certified expert in PCR (Molecular Biology for DNA) and Chromatography techniques. Additionally holds Diplomas in Total Quality Management (ISO 9001 & ISO 14001) and Internal Audit (ISO 19011/2018). Formerly Production Planning Section Head at a leading Pharmaceutical company.',
-    'arIntroduction':
-        'أخصائي قدير حاصل على الدكتوراه في التكنولوجيا الحيوية من جامعة مدينة السادات، وماجستير في الهندسة الوراثية والتكنولوجيا الحيوية (GEBRI). حاصل على دبلومة التحاليل البيولوجية من جامعة الأزهر وبكالوريوس العلوم (كيمياء وفيزياء) من جامعة القاهرة. خبير معتمد في تقنيات تفاعل البوليميراز المتسلسل (PCR) والكروماتوغرافيا. بالإضافة إلى ذلك، حاصل على دبلومات في إدارة الجودة الشاملة (ISO 9001 و ISO 14001) والمراجعة الداخلية (ISO 19011/2018). شغل سابقاً منصب رئيس قسم تخطيط الإنتاج في إحدى شركات الأدوية الكبرى.',
-    'reviews': '320',
-    'gender': 'Male',
-  });
 
-  // === إضافة دكتورة شهد (البيانات الجديدة) ===
-  await DatabaseHelper().insertDoctor({
-    'name': 'Dr. Shahd Al-Hamadani',
-    'arName': 'د. شهد الحمداني',
-    'speciality': 'Dentist',
-    'arSpeciality': 'طبيبة أسنان',
-    'rating': '4.9',
-    'image': 'assets/images/dr_shahd.png',
-    'introduction':
-        'Expert Dentist with over 11 years of experience in comprehensive dental care covering all treatments. Holds the prestigious Italian Fellowship in Laser Dentistry applications. Proudly certified by the American Dental Association (ADA) in both Endodontics (Root Canal) and Dental Implants. Committed to providing pain-free and cutting-edge dental solutions.',
-    'arIntroduction':
-        'خبرة أكثر من 11 سنة في جميع مجالات وعلاجات طب الأسنان. حاصلة على الزمالة الإيطالية المرموقة في تطبيقات الليزر في طب الأسنان. طبيبة معتمدة رسمياً من جمعية طب الأسنان الأمريكية (ADA) في تخصصي حشوات العصب وزراعة الأسنان. نلتزم بتقديم أحدث الحلول العلاجية بأعلى معايير الجودة وبدون ألم.',
-    'reviews': '215',
-    'gender': 'Female',
-  });
+  // === حذف الدكاترة القديمة (تم التعطيل للاعتماد على Firestore) ===
+  // await DatabaseHelper().recreateDoctorsTable();
 
-  // === إضافة د. أحمد جميل (البيانات الجديدة) ===
-  await DatabaseHelper().insertDoctor({
-    'name': 'Dr. Ahmed Gamil',
-    'arName': 'د. أحمد جميل',
-    'speciality': 'Dentist & Surgeon',
-    'arSpeciality': 'طبيب وجراح أسنان',
-    'rating': '4.8',
-    'image': 'assets/images/dr_ahmed.png',
-    'introduction':
-        'Dentist and Dental Surgeon. Holds postgraduate degrees in Pediatric Dentistry and Dental Implants, with extensive practical experience in major dental centers. Worked for 2 years at Shiny White Centers and 4 years at Dr. Haitham Centers, gaining wide expertise in diverse clinical cases. Owns a private clinic established 7 years ago, with a second branch in Al-Haram area. Committed to providing precise and safe medical care, prioritizing patient comfort and long-term treatment quality.',
-    'arIntroduction':
-        'طبيب وجراح أسنان. حاصل على دراسات عليا في طب أسنان الأطفال، ودراسات عليا في زراعة الأسنان، مع خبرة عملية ممتدة في العمل داخل كبرى مراكز طب الأسنان. عملت لمدة سنتين في مراكز شايني وايت، ولمدة أربع سنوات في مراكز د. هيثم، مما أتاح لي خبرة واسعة في التعامل مع مختلف الحالات السريرية. أمتلك عيادة خاصة منذ سبع سنوات، ولدي فرع ثانٍ للعيادة بمنطقة الهرم، وأسعى دائمًا لتقديم خدمة طبية دقيقة وآمنة.',
-    'reviews': '180',
-    'gender': 'Male',
-  });
-
-  // === إضافة د. يوسف طاهر محمد (البيانات الجديدة) ===
-  await DatabaseHelper().insertDoctor({
-    'name': 'Dr. Youssef Taher Mohamed',
-    'arName': 'د. يوسف طاهر محمد',
-    'speciality': 'Dentist',
-    'arSpeciality': 'طبيب أسنان',
-    'rating': '4.7',
-    'image': 'assets/images/dr_youssef.png',
-    'introduction':
-        'Dedicated Dentist providing high-quality dental care with a focus on patient comfort. Experienced in routine checkups, fillings, extractions, and cosmetic dentistry. Uses modern techniques to ensure the best oral health outcomes for all ages.',
-    'arIntroduction':
-        'طبيب أسنان متخصص يقدم رعاية طبية عالية الجودة مع التركيز على راحة المريض. خبرة في الفحوصات الروتينية، الحشوات، الخلع، وتجميل الأسنان. يستخدم أحدث التقنيات لضمان أفضل صحة فم للكبار والأطفال.',
-    'reviews': '150',
-    'gender': 'Male',
-  });
-
-  // === إضافة د. أحمد خالد (البيانات الجديدة) ===
-  await DatabaseHelper().insertDoctor({
-    'name': 'Dr. Ahmed Khaled',
-    'arName': 'د. أحمد خالد',
-    'speciality': 'Orthodontist',
-    'arSpeciality': 'أخصائي تقويم الأسنان',
-    'rating': '4.9',
-    'image': 'assets/images/dr_ahmed_khaled.png',
-    'introduction':
-        'Specialist in Orthodontics with an MSc from Cairo University. Member of the British Orthodontic Society (Fellowship). Former faculty member at the Faculty of Dentistry, Cairo University. Dedicated to providing top-tier orthodontic treatments.',
-    'arIntroduction':
-        'ماجستير تقويم الأسنان - جامعة القاهرة. حاصل على الزمالة البريطانية في تقويم الأسنان. عضو سابق في هيئة التدريس بطب الأسنان - جامعة القاهرة.',
-    'reviews': '200',
-    'gender': 'Male',
-  });
-
-  // === إضافة د. أدهم عز الدين (البيانات الجديدة) ===
-  await DatabaseHelper().insertDoctor({
-    'name': 'Dr. Adham Ezz El-Din',
-    'arName': 'د. أدهم عز الدين',
-    'speciality': 'Neurosurgeon & Spine Consultant',
-    'arSpeciality': 'استشاري جراحة المخ والأعصاب والعمود الفقري',
-    'rating': '4.9',
-    'image': 'assets/images/dr_adham_ezz.png',
-    'introduction':
-        'Consultant of Neurosurgery and Spine Surgery. Holds a PhD in Neurosurgery from Cairo University Faculty of Medicine. Lecturer of Neurosurgery and Spine Surgery at Kasr Al Ainy and Abu El Rish Hospitals. Expert in treating complex brain and spinal conditions.',
-    'arIntroduction':
-        'استشاري جراحة المخ والأعصاب والعمود الفقري. حاصل على دكتوراه جراحة المخ والأعصاب من كلية الطب - جامعة القاهرة. مدرس جراحة المخ والأعصاب والعمود الفقري بمستشفيات القصر العيني وأبو الريش.',
-    'reviews': '185',
-    'gender': 'Male',
-  });
+  // === تم تعطيل الإضافة التلقائية للدكاترة للاعتماد على البيانات الفورية من Firestore ===
+  /*
+  await DatabaseHelper().insertDoctor({ ... });
+  */
 
   runApp(const DoctorApp());
 }
@@ -155,29 +78,151 @@ class _DoctorAppState extends State<DoctorApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Doctor App',
+      title: 'NBIG Health',
+      builder: (context, child) {
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: child!,
+          ),
+        );
+      },
       theme: ThemeData(
-        primarySwatch: Colors.blue,
         useMaterial3: true,
         brightness: Brightness.light,
-        scaffoldBackgroundColor: Colors.white,
+        scaffoldBackgroundColor: const Color(0xFFF0F4F8),
+        primaryColor: const Color(0xFF10B981),
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFF10B981),
+          onPrimary: Colors.white,
+          secondary: Color(0xFF6366F1),
+          onSecondary: Colors.white,
+          surface: Color(0xFFFFFFFF),
+          onSurface: Color(0xFF0F172A),
+          outline: Color(0xFFE2E8F0),
+          error: Color(0xFFEF4444),
+        ),
         cardColor: Colors.white,
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0, color: Color(0xFF0F172A)),
+          displayMedium: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Color(0xFF0F172A)),
+          titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+          titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+          bodyLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF334155)),
+          bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xFF64748B)),
+          labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.2),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+          ),
+        ),
+        cardTheme: const CardThemeData(
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(20))),
+          color: Colors.white,
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            borderSide: BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            borderSide: BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
+          ),
+        ),
+        chipTheme: const ChipThemeData(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        switchTheme: SwitchThemeData(
+          thumbColor: const WidgetStatePropertyAll(Colors.white),
+          trackColor: WidgetStateProperty.resolveWith((s) =>
+            s.contains(WidgetState.selected) ? const Color(0xFF10B981) : const Color(0xFFCBD5E1)),
+        ),
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
-            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.android: ZoomPageTransitionsBuilder(),
             TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           },
         ),
       ),
       darkTheme: ThemeData(
-        primarySwatch: Colors.blue,
         useMaterial3: true,
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: Colors.grey[900],
-        cardColor: Colors.grey[800],
+        scaffoldBackgroundColor: const Color(0xFF0B1120),
+        primaryColor: const Color(0xFF10B981),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF10B981),
+          onPrimary: Colors.white,
+          secondary: Color(0xFF818CF8),
+          onSecondary: Colors.white,
+          surface: Color(0xFF1E293B),
+          onSurface: Color(0xFFF1F5F9),
+          outline: Color(0xFF334155),
+          error: Color(0xFFF87171),
+        ),
+        cardColor: const Color(0xFF1E293B),
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0, color: Color(0xFFF1F5F9)),
+          displayMedium: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Color(0xFFF1F5F9)),
+          titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFFF1F5F9)),
+          titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Color(0xFFF1F5F9)),
+          bodyLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFFCBD5E1)),
+          bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xFF94A3B8)),
+          labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.2),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+          ),
+        ),
+        cardTheme: const CardThemeData(
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(20))),
+          color: Color(0xFF1E293B),
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          filled: true,
+          fillColor: Color(0xFF1E293B),
+          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            borderSide: BorderSide(color: Color(0xFF334155)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            borderSide: BorderSide(color: Color(0xFF334155)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
+          ),
+        ),
+        chipTheme: const ChipThemeData(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        switchTheme: SwitchThemeData(
+          thumbColor: const WidgetStatePropertyAll(Colors.white),
+          trackColor: WidgetStateProperty.resolveWith((s) =>
+            s.contains(WidgetState.selected) ? const Color(0xFF10B981) : const Color(0xFF334155)),
+        ),
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
-            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.android: ZoomPageTransitionsBuilder(),
             TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           },
         ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
@@ -11,13 +12,15 @@ class DatabaseHelper {
   DatabaseHelper._internal();
   static Database? _database;
 
-  Future<Database> get database async {
+  Future<Database?> get database async {
+    if (kIsWeb) return null;
     if (_database != null) return _database!;
     _database = await _initDatabase();
-    return _database!;
+    return _database;
   }
 
-  Future<Database> _initDatabase() async {
+  Future<Database?> _initDatabase() async {
+    if (kIsWeb) return null;
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
     String path = join(documentsDirectory.path, "app_database_final.db");
     if (FileSystemEntity.typeSync(path) == FileSystemEntityType.notFound) {
@@ -39,13 +42,22 @@ class DatabaseHelper {
       'CREATE TABLE IF NOT EXISTS Messages (id INTEGER PRIMARY KEY AUTOINCREMENT, doctorName TEXT, text TEXT, isMe INTEGER, timestamp TEXT, attachmentPath TEXT, attachmentType TEXT)',
     );
 
-    // محاولة إضافة الأعمدة لو الجدول موجود من قبل (Migration logic simple)
+    // Migration logic simple
     try {
       await db.execute('ALTER TABLE Messages ADD COLUMN attachmentPath TEXT');
+    } catch (_) {}
+    try {
       await db.execute('ALTER TABLE Messages ADD COLUMN attachmentType TEXT');
-    } catch (e) {
-      // الأعمدة موجودة بالفعل أو خطأ آخر، نتجاهل
-    }
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE UserAppointments ADD COLUMN doctorId TEXT');
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE UserAppointments ADD COLUMN isRated INTEGER DEFAULT 0');
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE UserAppointments ADD COLUMN firestoreId TEXT');
+    } catch (_) {}
 
     return db;
   }
@@ -53,6 +65,7 @@ class DatabaseHelper {
   // === 1. جلب الدكاترة (بالعربي والإنجليزي) ===
   Future<List<Doctor>> getDoctors({String? category}) async {
     final db = await database;
+    if (db == null) return [];
     final favList = await db.query('UserFavorites');
     final favIds = favList.map((e) => e['doctorId'].toString()).toSet();
 
@@ -77,6 +90,7 @@ class DatabaseHelper {
 
   Future<bool> toggleFavorite(String doctorId) async {
     final db = await database;
+    if (db == null) return false;
     final maps = await db.query(
       'UserFavorites',
       where: 'doctorId = ?',
@@ -97,6 +111,7 @@ class DatabaseHelper {
 
   Future<List<Doctor>> searchDoctors(String keyword) async {
     final db = await database;
+    if (db == null) return [];
     final List<Map<String, dynamic>> maps = await db.query(
       'DoctorV2',
       where: 'name LIKE ? OR speciality LIKE ?',
@@ -109,6 +124,7 @@ class DatabaseHelper {
   // === حذف وإضافة دكاترة (للأدمن أو التحديث) ===
   Future<void> recreateDoctorsTable() async {
     final db = await database;
+    if (db == null) return;
     await db.execute('DROP TABLE IF EXISTS DoctorV2');
     await db.execute('''
       CREATE TABLE DoctorV2 (
@@ -129,27 +145,34 @@ class DatabaseHelper {
 
   Future<void> insertDoctor(Map<String, dynamic> doctorData) async {
     final db = await database;
+    if (db == null) return;
     await db.insert('DoctorV2', doctorData);
   }
 
-  Future<int> addAppointment(
+  Future<void> addAppointment(
+    String doctorId,
     String doctorName,
     String specialty,
     String date,
     String time,
+    String? firestoreId,
   ) async {
     final db = await database;
-    return await db.insert('UserAppointments', {
+    if (db == null) return;
+    await db.insert('UserAppointments', {
+      'doctorId': doctorId,
       'doctorName': doctorName,
       'specialty': specialty,
       'date': date,
       'time': time,
       'status': 'upcoming',
+      'firestoreId': firestoreId,
     });
   }
 
   Future<List<Map<String, dynamic>>> getAppointments(String status) async {
     final db = await database;
+    if (db == null) return [];
     return await db.query(
       'UserAppointments',
       where: 'status = ?',
@@ -160,6 +183,7 @@ class DatabaseHelper {
 
   Future<int> cancelAppointment(int id) async {
     final db = await database;
+    if (db == null) return -1;
     return await db.update(
       'UserAppointments',
       {'status': 'canceled'},
@@ -170,6 +194,7 @@ class DatabaseHelper {
 
   Future<int> completeAppointment(int id) async {
     final db = await database;
+    if (db == null) return -1;
     return await db.update(
       'UserAppointments',
       {'status': 'completed'},
@@ -178,8 +203,20 @@ class DatabaseHelper {
     );
   }
 
+  Future<int> markAppointmentAsRated(int id) async {
+    final db = await database;
+    if (db == null) return -1;
+    return await db.update(
+      'UserAppointments',
+      {'isRated': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<List<String>> getBookedTimes(String doctorName, String date) async {
     final db = await database;
+    if (db == null) return [];
     final result = await db.query(
       'UserAppointments',
       columns: ['time'],
@@ -198,6 +235,7 @@ class DatabaseHelper {
     String? attachmentType,
   }) async {
     final db = await database;
+    if (db == null) return;
     final timestamp = DateTime.now().toIso8601String();
     await db.insert('Messages', {
       'doctorName': doctorName,
@@ -211,6 +249,7 @@ class DatabaseHelper {
 
   Future<List<Map<String, dynamic>>> getMessages(String doctorName) async {
     final db = await database;
+    if (db == null) return [];
     try {
       final result = await db.query(
         'Messages',

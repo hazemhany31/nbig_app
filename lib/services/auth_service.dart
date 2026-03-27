@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'app_notification_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -68,17 +69,33 @@ class AuthService {
     }, SetOptions(merge: true));
   }
 
-  // Get User Data
+  // Get User Data — try cache first for instant load, fallback to network
   Future<Map<String, dynamic>?> getUserData() async {
     final user = _auth.currentUser;
     if (user == null) return null;
 
-    final doc = await _firestore.collection('users').doc(user.uid).get();
-    return doc.data();
+    final ref = _firestore.collection('users').doc(user.uid);
+
+    // 1) Try cache instantly
+    try {
+      final cached = await ref.get(const GetOptions(source: Source.cache));
+      if (cached.exists && cached.data() != null) return cached.data();
+    } catch (_) {}
+
+    // 2) Fallback to network with 5s timeout
+    try {
+      final doc = await ref
+          .get(const GetOptions(source: Source.server))
+          .timeout(const Duration(seconds: 5));
+      return doc.data();
+    } catch (_) {
+      return null;
+    }
   }
 
   // Sign Out
   Future<void> signOut() async {
+    AppNotificationService().stopListening();
     await _auth.signOut();
   }
 

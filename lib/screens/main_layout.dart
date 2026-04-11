@@ -34,6 +34,7 @@ import '../services/app_notification_service.dart';
 import '../services/medication_tracking_service.dart';
 
 import '../language_config.dart';
+import '../widgets/shimmer_loading.dart';
 
 // === MAIN LAYOUT ===
 class MainLayout extends StatefulWidget {
@@ -72,6 +73,7 @@ class _MainLayoutState extends State<MainLayout> {
 
   Future<void> _loadLang() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       isArabic = prefs.getBool('isArabic') ?? false;
     });
@@ -87,6 +89,7 @@ class _MainLayoutState extends State<MainLayout> {
       path = null;
     }
 
+    if (!mounted) return;
     setState(() {
       _cachedProfileImage = path;
     });
@@ -170,72 +173,102 @@ class _MainLayoutState extends State<MainLayout> {
               ),
               child: SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
-                  child: GNav(
-                    rippleColor: const Color(0xFF10B981).withValues(alpha: 0.15),
-                    hoverColor: const Color(0xFF10B981).withValues(alpha: 0.08),
-                    gap: 6,
-                    activeColor: Colors.white,
-                    iconSize: 22,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                    duration: const Duration(milliseconds: 350),
-                    tabBackgroundColor: const Color(0xFF10B981),
-                    tabBackgroundGradient: const LinearGradient(
-                      colors: [Color(0xFF10B981), Color(0xFF059669)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFF64748B)
-                        : const Color(0xFF94A3B8),
-                    tabs: [
-                      GButton(
-                        icon: Icons.home_rounded,
-                        text: isArabic ? 'الرئيسية' : 'Home',
-                        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
-                      ),
-                      GButton(
-                        icon: Icons.calendar_month_rounded,
-                        text: isArabic ? 'مواعيدي' : 'Schedule',
-                        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
-                      ),
-                      GButton(
-                        icon: Icons.health_and_safety_rounded,
-                        text: isArabic ? 'صحتي' : 'Health',
-                        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
-                      ),
-                      GButton(
-                        icon: Icons.person_rounded,
-                        text: isArabic ? 'حسابي' : 'Profile',
-                        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
-                      ),
-                    ],
-                    selectedIndex: _currentIndex,
-                    onTabChange: (index) {
-                      HapticFeedback.lightImpact();
-                      if (index == 1) {
-                        setState(() => _scheduleKey = UniqueKey());
-                      }
-                      if (index == 0 && _currentIndex == 0) {
-                        if (_homeScrollController.hasClients) {
-                          _homeScrollController.animateTo(
-                            0.0,
-                            duration: const Duration(milliseconds: 500),
-                            curve: Curves.easeInOut,
-                          );
-                        }
-                      } else {
-                        setState(() => _currentIndex = index);
-                      }
-                    },
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12.0,
+                    vertical: 8,
                   ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+                  child: SizedBox(
+                    height:
+                        56, // Fixed height to prevent unbounded constraints in MultiChildLayoutDelegate
+                    child: GNav(
+                      rippleColor: const Color(
+                        0xFF10B981,
+                      ).withValues(alpha: 0.15),
+                      hoverColor: const Color(
+                        0xFF10B981,
+                      ).withValues(alpha: 0.08),
+                      gap: 6,
+                      activeColor: Colors.white,
+                      iconSize: 22,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
+                      duration: const Duration(milliseconds: 350),
+                      tabBackgroundColor: const Color(0xFF10B981),
+                      tabBackgroundGradient: const LinearGradient(
+                        colors: [Color(0xFF10B981), Color(0xFF059669)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF64748B)
+                          : const Color(0xFF94A3B8),
+                      tabs: [
+                        GButton(
+                          icon: Icons.home_rounded,
+                          text: isArabic ? 'الرئيسية' : 'Home',
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        GButton(
+                          icon: Icons.calendar_month_rounded,
+                          text: isArabic ? 'مواعيدي' : 'Schedule',
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        GButton(
+                          icon: Icons.health_and_safety_rounded,
+                          text: isArabic ? 'صحتي' : 'Health',
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        GButton(
+                          icon: Icons.person_rounded,
+                          text: isArabic ? 'حسابي' : 'Profile',
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                      selectedIndex: _currentIndex,
+                      onTabChange: (index) {
+                        HapticFeedback.lightImpact();
+                        if (index == 1) {
+                          setState(() => _scheduleKey = UniqueKey());
+                        }
+                        if (index == 0 && _currentIndex == 0) {
+                          if (_homeScrollController.hasClients) {
+                            _homeScrollController.animateTo(
+                              0.0,
+                              duration: const Duration(milliseconds: 500),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        } else {
+                          setState(() => _currentIndex = index);
+                        }
+                      },
+                    ), // end of GNav
+                  ), // end of SizedBox
+                ), // end of Padding
+              ), // end of SafeArea
+            ), // end of Container
+          ), // end of BackdropFilter
+        ), // end of ClipRect
+      ), // end of Scaffold
+    ); // end of Directionality
   }
 }
 
@@ -318,9 +351,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               // Time-of-day pill
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF10B981).withValues(alpha: 0.10),
+                                  color: const Color(
+                                    0xFF10B981,
+                                  ).withValues(alpha: 0.10),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
@@ -338,7 +376,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w800,
-                                  color: Theme.of(context).brightness == Brightness.dark
+                                  color:
+                                      Theme.of(context).brightness ==
+                                          Brightness.dark
                                       ? Colors.white
                                       : const Color(0xFF0F172A),
                                   letterSpacing: -0.5,
@@ -362,17 +402,23 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: const EdgeInsets.all(2),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Theme.of(context).brightness == Brightness.dark
+                              color:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
                                   ? const Color(0xFF0B1120)
                                   : Colors.white,
                             ),
                             child: CircleAvatar(
                               radius: 24,
                               backgroundImage:
-                                  (!kIsWeb && widget.profileImage != null &&
+                                  (!kIsWeb &&
+                                      widget.profileImage != null &&
                                       File(widget.profileImage!).existsSync())
-                                  ? FileImage(File(widget.profileImage!)) as ImageProvider
-                                  : const AssetImage('assets/images/doctor_big_preview.png'),
+                                  ? FileImage(File(widget.profileImage!))
+                                        as ImageProvider
+                                  : const AssetImage(
+                                      'assets/images/doctor_big_preview.png',
+                                    ),
                             ),
                           ),
                         ),
@@ -390,26 +436,47 @@ class _HomeScreenState extends State<HomeScreen> {
                             Navigator.push(
                               context,
                               PageRouteBuilder(
-                                pageBuilder: (context, animation, secondaryAnimation) => const SearchDoctorsScreen(),
-                                transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                  const begin = Offset(0.0, 0.05);
-                                  const end = Offset.zero;
-                                  const curve = Curves.fastOutSlowIn;
-                                  var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: SlideTransition(position: animation.drive(tween), child: child),
-                                  );
-                                },
-                                transitionDuration: const Duration(milliseconds: 300),
+                                pageBuilder:
+                                    (context, animation, secondaryAnimation) =>
+                                        const SearchDoctorsScreen(),
+                                transitionsBuilder:
+                                    (
+                                      context,
+                                      animation,
+                                      secondaryAnimation,
+                                      child,
+                                    ) {
+                                      const begin = Offset(0.0, 0.05);
+                                      const end = Offset.zero;
+                                      const curve = Curves.fastOutSlowIn;
+                                      var tween = Tween(
+                                        begin: begin,
+                                        end: end,
+                                      ).chain(CurveTween(curve: curve));
+                                      return FadeTransition(
+                                        opacity: animation,
+                                        child: SlideTransition(
+                                          position: animation.drive(tween),
+                                          child: child,
+                                        ),
+                                      );
+                                    },
+                                transitionDuration: const Duration(
+                                  milliseconds: 300,
+                                ),
                               ),
                             );
                           },
                           borderRadius: BorderRadius.circular(18),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 15,
+                            ),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).brightness == Brightness.dark
+                              color:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
                                   ? const Color(0xFF1E293B)
                                   : Colors.white,
                               borderRadius: BorderRadius.circular(18),
@@ -421,7 +488,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ],
                               border: Border.all(
-                                color: Theme.of(context).brightness == Brightness.dark
+                                color:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
                                     ? Colors.white.withValues(alpha: 0.06)
                                     : const Color(0xFFE2E8F0),
                               ),
@@ -430,7 +499,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 Icon(
                                   Icons.search_rounded,
-                                  color: Theme.of(context).brightness == Brightness.dark
+                                  color:
+                                      Theme.of(context).brightness ==
+                                          Brightness.dark
                                       ? const Color(0xFF64748B)
                                       : const Color(0xFF94A3B8),
                                   size: 21,
@@ -438,9 +509,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
-                                    isArabic ? 'ابحث عن طبيب أو تخصص...' : 'Search doctor or specialty...',
+                                    isArabic
+                                        ? 'ابحث عن طبيب أو تخصص...'
+                                        : 'Search doctor or specialty...',
                                     style: TextStyle(
-                                      color: Theme.of(context).brightness == Brightness.dark
+                                      color:
+                                          Theme.of(context).brightness ==
+                                              Brightness.dark
                                           ? const Color(0xFF64748B)
                                           : const Color(0xFF94A3B8),
                                       fontSize: 14,
@@ -452,11 +527,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                   padding: const EdgeInsets.all(7),
                                   decoration: BoxDecoration(
                                     gradient: const LinearGradient(
-                                      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                                      colors: [
+                                        Color(0xFF6366F1),
+                                        Color(0xFF8B5CF6),
+                                      ],
                                     ),
                                     borderRadius: BorderRadius.circular(11),
                                   ),
-                                  child: const Icon(Icons.tune_rounded, color: Colors.white, size: 16),
+                                  child: const Icon(
+                                    Icons.tune_rounded,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
                                 ),
                               ],
                             ),
@@ -481,7 +563,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: TextStyle(
                             fontSize: 19,
                             fontWeight: FontWeight.w800,
-                            color: Theme.of(context).brightness == Brightness.dark
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
                                 ? Colors.white
                                 : const Color(0xFF0F172A),
                             letterSpacing: -0.3,
@@ -492,14 +575,20 @@ class _HomeScreenState extends State<HomeScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const SpecialtiesListScreen(),
+                                builder: (context) =>
+                                    const SpecialtiesListScreen(),
                               ),
                             );
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF6366F1).withValues(alpha: 0.10),
+                              color: const Color(
+                                0xFF6366F1,
+                              ).withValues(alpha: 0.10),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
@@ -721,7 +810,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
           border: Border.all(
-            color: isDark ? Colors.white.withValues(alpha: 0.06) : color.withValues(alpha: 0.08),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : color.withValues(alpha: 0.08),
           ),
         ),
         child: Column(
@@ -731,17 +822,16 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.all(13),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [color.withValues(alpha: 0.18), color.withValues(alpha: 0.08)],
+                  colors: [
+                    color.withValues(alpha: 0.18),
+                    color.withValues(alpha: 0.08),
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 26,
-              ),
+              child: Icon(icon, color: color, size: 26),
             ),
             const SizedBox(height: 10),
             Text(
@@ -762,14 +852,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
   Widget _buildDoctorInterviews() {
     final interviews = [
       {
         'name': isArabic ? 'د. سارة أحمد' : 'Dr. Sarah Ahmed',
         'title': isArabic ? 'طبيبة عامة' : 'General Practitioner',
         'image':
-            'https://images.unsplash.com/photo-1594824436998-dfb9fb6c8e31?auto=format&fit=crop&w=300&q=80',
+            'https://plus.unsplash.com/premium_photo-1661764832351-3e5858d7c1aa?auto=format&fit=crop&w=300&q=80', // Stable Premium URL
       },
       {
         'name': isArabic ? 'د. محمد علي' : 'Dr. Mohamed Ali',
@@ -808,20 +897,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     Stack(
                       alignment: Alignment.center,
                       children: [
-                        Container(
-                          height: 120,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(15),
-                            image: DecorationImage(
-                              image: CachedNetworkImageProvider(item['image']!),
-                              fit: BoxFit.cover,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 5,
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(15),
+                          child: CachedNetworkImage(
+                            imageUrl: item['image']!,
+                            height: 120,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              color: Colors.grey[100],
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
-                            ],
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey[200],
+                              child: Icon(
+                                Icons.person,
+                                color: Colors.grey[400],
+                                size: 40,
+                              ),
+                            ),
                           ),
                         ),
                         Container(
@@ -904,7 +1002,9 @@ class _HomeScreenState extends State<HomeScreen> {
               return GestureDetector(
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => BlogDetailScreen(post: post)),
+                  MaterialPageRoute(
+                    builder: (_) => BlogDetailScreen(post: post),
+                  ),
                 ),
                 child: Container(
                   width: 300,
@@ -914,7 +1014,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+                        color: Colors.black.withValues(
+                          alpha: isDark ? 0.3 : 0.08,
+                        ),
                         blurRadius: 15,
                         offset: const Offset(0, 8),
                       ),
@@ -934,13 +1036,24 @@ class _HomeScreenState extends State<HomeScreen> {
                               height: 160,
                               width: double.infinity,
                               fit: BoxFit.cover,
+                              errorWidget: (context, url, error) => Container(
+                                height: 160,
+                                color: Colors.grey[200],
+                                child: const Icon(
+                                  Icons.image_not_supported_rounded,
+                                  color: Colors.grey,
+                                ),
+                              ),
                             ),
                           ),
                           Positioned(
                             top: 12,
                             right: 12,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.black.withValues(alpha: 0.6),
                                 borderRadius: BorderRadius.circular(10),
@@ -967,7 +1080,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               style: TextStyle(
                                 fontWeight: FontWeight.w900,
                                 fontSize: 16,
-                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF0F172A),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -976,7 +1091,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             Text(
                               isArabic ? post.subtitleAr : post.subtitleEn,
                               style: TextStyle(
-                                color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                color: isDark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
                                 fontSize: 13,
                                 height: 1.4,
                               ),
@@ -1028,7 +1145,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         colors: [Color(0xFF10B981), Color(0xFF059669)],
                       )
                     : null,
-                color: _bannerIndex == i ? null : const Color(0xFF10B981).withValues(alpha: 0.25),
+                color: _bannerIndex == i
+                    ? null
+                    : const Color(0xFF10B981).withValues(alpha: 0.25),
                 borderRadius: BorderRadius.circular(4),
               ),
             );
@@ -1184,24 +1303,42 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   void initState() {
     super.initState();
     _loadAppointments();
+
+    // Auto-cleanup old cancellations and duplicates on startup
+    if (!kIsWeb) {
+      DatabaseHelper().cleanupOldCancellations();
+      DatabaseHelper().deduplicateAppointments();
+    }
+  }
+
+  @override
+  void dispose() {
+    // Acknowledge cancellations when leaving the screen
+    if (!kIsWeb) {
+      DatabaseHelper().acknowledgeCancellations();
+    }
+    super.dispose();
   }
 
   void _loadAppointments() async {
     setState(() => _isLoading = true);
     String status = _tabIndex == 0
         ? 'upcoming'
-        : (_tabIndex == 2 ? 'canceled' : 'completed');
+        : (_tabIndex == 2 ? 'cancelled' : 'completed');
     try {
       List<Map<String, dynamic>> data = [];
-      
+
       if (kIsWeb) {
         final user = FirebaseAuth.instance.currentUser;
         if (user != null) {
-          final appointments = await AppointmentService().getPatientAppointmentsFuture(user.uid);
-          
+          final appointments = await AppointmentService()
+              .getPatientAppointmentsFuture(user.uid);
+
           // Filter by status (mapping Firestore statuses to UI tabs)
           final filtered = appointments.where((a) {
-            if (_tabIndex == 0) return a.status == 'pending' || a.status == 'confirmed';
+            if (_tabIndex == 0) {
+              return a.status == 'pending' || a.status == 'confirmed';
+            }
             if (_tabIndex == 1) return a.status == 'completed';
             if (_tabIndex == 2) return a.status == 'cancelled';
             return false;
@@ -1209,9 +1346,18 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
           data = filtered.map((a) {
             // Match the format expected by the UI and SQLite
-            final List<String> days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-            final dateStr = "${days[a.dateTime.weekday - 1]}, ${a.dateTime.day}";
-            
+            final List<String> days = [
+              'Mon',
+              'Tue',
+              'Wed',
+              'Thu',
+              'Fri',
+              'Sat',
+              'Sun',
+            ];
+            final dateStr =
+                "${days[a.dateTime.weekday - 1]}, ${a.dateTime.day}";
+
             return {
               'id': a.id, // String ID from Firestore
               'doctorId': a.doctorId,
@@ -1219,14 +1365,65 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               'specialty': a.specialty,
               'date': dateStr,
               'time': a.formattedTime,
-              'status': _tabIndex == 0 ? 'upcoming' : (_tabIndex == 2 ? 'canceled' : 'completed'),
+              'status': a.status, // Store actual Firestore status
               'firestoreId': a.id,
             };
           }).toList();
         }
       } else {
-        data = await DatabaseHelper().getAppointments(status);
+        // --- MOBILE BACKGROUND SYNC ---
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          try {
+            // 1. Fetch latest from Cloud
+            final cloudAppts = await AppointmentService()
+                .getPatientAppointmentsFuture(user.uid);
+            // 2. Sync Firestore status to SQLite
+            for (var cloud in cloudAppts) {
+              await DatabaseHelper().updateAppointmentStatusByFirestoreId(
+                cloud.id,
+                cloud.status,
+                cancelledBy: cloud.cancelledBy,
+              );
+            }
+          } catch (e) {
+            debugPrint('⚠️ Background status sync failed: $e');
+          }
+        }
+
+        // For mobile, we want both pending, confirmed, AND accepted in the upcoming tab
+        if (_tabIndex == 0) {
+          final pending = await DatabaseHelper().getAppointments('pending');
+          final confirmed = await DatabaseHelper().getAppointments('confirmed');
+          final accepted = await DatabaseHelper().getAppointments('accepted');
+          data = [...pending, ...confirmed, ...accepted];
+        } else {
+          data = await DatabaseHelper().getAppointments(status);
+        }
       }
+
+      // -- UI DEDUPLICATION (Robust) --
+      final Map<String, Map<String, dynamic>> uniqueMap = {};
+      for (var item in data) {
+        // Unique key: doctor + date + time (trimmed and lowercased to catch variants)
+        String dName = (item['doctorName'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+        String dDate = (item['date'] ?? '').toString().trim().toLowerCase();
+        String dTime = (item['time'] ?? '').toString().trim().toLowerCase();
+        String key =
+            "$dName"
+            "_"
+            "$dDate"
+            "_"
+            "$dTime";
+
+        if (!uniqueMap.containsKey(key)) {
+          uniqueMap[key] = item;
+        }
+      }
+      data = uniqueMap.values.toList();
 
       if (!mounted) return;
       setState(() {
@@ -1242,67 +1439,260 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     }
   }
 
-  void _cancelAppointment(BuildContext ctx, dynamic id) async {
-    try {
-      // 1. Handle based on platform (Web uses String ID, Mobile uses SQLite Int ID)
-      if (kIsWeb) {
-        // Direct cancel in Firestore
-        await AppointmentService().cancelAppointment(id.toString());
-      } else {
-        // 1. Get the firestoreId from SQLite before cancelling locally
-        final db = DatabaseHelper();
-        final appointments = await db.getAppointments('upcoming');
-        final appt = appointments.firstWhere((a) => a['id'] == id, orElse: () => {});
-        final String? firestoreId = appt['firestoreId'];
-
-        // 2. Sync with Firestore if ID exists
-        if (firestoreId != null && firestoreId.isNotEmpty) {
-          await AppointmentService().cancelAppointment(firestoreId);
-        }
-
-        // 3. Cancel locally
-        await db.cancelAppointment(id as int);
-      }
-
-      _loadAppointments();
-
-      if (mounted) {
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(
-            content: Text(isArabic ? "تم إلغاء الموعد" : "Appointment Canceled"),
-          ),
-        );
-      }
-    } catch (e) {
-// debugPrint('❌ Error in _cancelAppointment: $e');
-    }
-  }
-
   void _completeAppointment(BuildContext ctx, dynamic id) async {
+    // 1. Capture appointment data BEFORE reloading the list
+    final appointment = _appointments.firstWhere(
+      (a) => a['id'] == id,
+      orElse: () => {},
+    );
+    if (appointment.isEmpty) return;
+
+    // Capture stable ScaffoldMessenger before any async gap
+    final messenger = ScaffoldMessenger.of(context);
+
     try {
       if (kIsWeb) {
-        // For web, we only have one source of truth (Firestore)
-        // Note: AppointmentService doesn't have a direct completeAppointment yet,
-        // but we can update it if needed or just use Firestore directly here.
         await FirebaseFirestore.instance
             .collection('appointments')
             .doc(id.toString())
             .update({'status': 'completed'});
       } else {
-        await DatabaseHelper().completeAppointment(id as int);
+        // Safe cast for SQLite ID
+        final intId = id is int ? id : (int.tryParse(id.toString()) ?? 0);
+        if (intId != 0) {
+          await DatabaseHelper().completeAppointment(intId);
+        }
       }
-      
+
+      _loadAppointments();
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              isArabic ? "تمت الزيارة ✅" : "Appointment Completed ✅",
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Use this.context (State context) NOT ctx (card context that becomes stale after rebuild)
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) _showRatingDialog(context, appointment);
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error in _completeAppointment: $e');
+    }
+  }
+
+  void _cancelAppointment(
+    BuildContext ctx,
+    dynamic id,
+    String? firestoreId,
+  ) async {
+    // Confirm before canceling
+    final bool? confirm = await showDialog<bool>(
+      context: ctx,
+      builder: (context) => AlertDialog(
+        title: Text(isArabic ? 'إلغاء الموعد؟' : 'Cancel Appointment?'),
+        content: Text(
+          isArabic
+              ? 'هل أنت متأكد من رغبتك في إلغاء هذا الموعد؟'
+              : 'Are you sure you want to cancel this appointment?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(isArabic ? 'لا' : 'No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              isArabic ? 'نعم، إلغاء' : 'Yes, Cancel',
+              style: const TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      if (kIsWeb || firestoreId != null) {
+        await FirebaseFirestore.instance
+            .collection('appointments')
+            .doc(firestoreId ?? id.toString())
+            .update({
+              'status': 'cancelled',
+              'cancelledBy': 'patient',
+              'cancelledAt': FieldValue.serverTimestamp(),
+            });
+      }
+
+      if (!kIsWeb) {
+        final intId = id is int ? id : (int.tryParse(id.toString()) ?? 0);
+        if (intId != 0) {
+          await DatabaseHelper().cancelAppointment(intId);
+        }
+      }
+
       _loadAppointments();
       if (mounted) {
         ScaffoldMessenger.of(ctx).showSnackBar(
           SnackBar(
-            content: Text(isArabic ? "تمت الزيارة ✅" : "Appointment Completed ✅"),
-            backgroundColor: Colors.green,
+            content: Text(
+              isArabic ? "تم إلغاء الموعد ❌" : "Appointment Canceled ❌",
+            ),
+            backgroundColor: Colors.redAccent,
           ),
         );
       }
     } catch (e) {
-// debugPrint('❌ Error in _completeAppointment: $e');
+      debugPrint('❌ Error in _cancelAppointment: $e');
+    }
+  }
+
+  void _deleteAppointment(
+    BuildContext ctx,
+    dynamic id,
+    String? firestoreId,
+  ) async {
+    // Confirm before deleting
+    final bool? confirm = await showDialog<bool>(
+      context: ctx,
+      builder: (context) => AlertDialog(
+        title: Text(isArabic ? 'حذف الموعد؟' : 'Delete Appointment?'),
+        content: Text(
+          isArabic
+              ? 'هل أنت متأكد من رغبتك في حذف هذا الموعد نهائياً؟'
+              : 'Are you sure you want to permanently delete this appointment?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              isArabic ? 'حذف' : 'Delete',
+              style: const TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    // 1. Try Firestore Delete (Independent)
+    try {
+      if (kIsWeb || firestoreId != null) {
+        await FirebaseFirestore.instance
+            .collection('appointments')
+            .doc(firestoreId ?? id.toString())
+            .delete();
+      }
+    } catch (e) {
+      debugPrint('⚠️ Firestore delete failed: $e');
+    }
+
+    // 2. Try SQLite Delete (Independent)
+    try {
+      if (!kIsWeb) {
+        final intId = id is int ? id : (int.tryParse(id.toString()) ?? 0);
+        if (intId != 0) {
+          await DatabaseHelper().deleteAppointment(intId);
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ SQLite delete failed: $e');
+    }
+
+    // Always load appointments at the end
+    _loadAppointments();
+
+    if (mounted) {
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(
+          content: Text(
+            isArabic
+                ? "تم حذف الموعد بنجاح"
+                : "Appointment deleted successfully",
+          ),
+          backgroundColor: Colors.black87,
+        ),
+      );
+    }
+  }
+
+  void _clearAllAppointments(BuildContext ctx) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        title: Text(isArabic ? 'مسح الكل؟' : 'Clear All?'),
+        content: Text(
+          isArabic
+              ? 'سيتم إلغاء جميع الحجوزات النشطة ومسح كافة السجلات. هل أنت متأكد؟'
+              : 'Active appointments will be cancelled and all records cleared. Are you sure?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dlgCtx, false),
+            child: Text(isArabic ? 'لا' : 'No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dlgCtx, true),
+            child: Text(
+              isArabic ? 'نعم، امسح' : 'Yes, Clear',
+              style: const TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      // 1. Cancel active appointments in Firestore first (frees up time slots)
+      final activeIds = await DatabaseHelper().getAllActiveFirestoreIds();
+      for (final firestoreId in activeIds) {
+        try {
+          await FirebaseFirestore.instance
+              .collection('appointments')
+              .doc(firestoreId)
+              .update({
+                'status': 'cancelled',
+                'cancelledBy': 'patient',
+                'cancelledAt': FieldValue.serverTimestamp(),
+              });
+        } catch (e) {
+          debugPrint('⚠️ Could not cancel $firestoreId in Firestore: $e');
+        }
+      }
+
+      // 2. Clear local SQLite
+      await DatabaseHelper().deleteAllAppointments();
+      _loadAppointments();
+
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              isArabic
+                  ? "تم مسح السجل وإلغاء الحجوزات النشطة ✅"
+                  : "History cleared and active bookings cancelled ✅",
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error clearing appointments: $e');
     }
   }
 
@@ -1316,21 +1706,62 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 24),
-            Text(
-              isArabic ? 'مواعيدي' : 'My Schedule',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.5,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isArabic ? 'مواعيدي' : 'My Schedule',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
+                ),
+                TextButton.icon(
+                  onPressed: () => _clearAllAppointments(context),
+                  icon: const Icon(
+                    Icons.delete_sweep_outlined,
+                    size: 20,
+                    color: Color(0xFFEF4444),
+                  ),
+                  label: Text(
+                    isArabic ? 'مسح الكل' : 'Clear All',
+                    style: const TextStyle(
+                      color: Color(0xFFEF4444),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(
+                      0xFFEF4444,
+                    ).withValues(alpha: 0.1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 6),
             Text(
-              isArabic ? 'تتبع مسارك ومناعيدك الطبية' : 'Track your upcoming visits',
+              isArabic
+                  ? 'تتبع مسارك ومناعيدك الطبية'
+                  : 'Track your upcoming visits',
               style: TextStyle(
                 fontSize: 13,
-                color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                color: isDark
+                    ? const Color(0xFF64748B)
+                    : const Color(0xFF94A3B8),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1339,7 +1770,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                color: isDark
+                    ? const Color(0xFF1E293B)
+                    : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -1353,24 +1786,18 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             const SizedBox(height: 20),
             Expanded(
               child: _isLoading
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
-                            strokeWidth: 3,
+                  ? ListView.builder(
+                      itemCount: 4,
+                      itemBuilder: (context, index) {
+                        return const Padding(
+                          padding: EdgeInsets.only(bottom: 16),
+                          child: ShimmerLoading(
+                            width: double.infinity,
+                            height: 120,
+                            borderRadius: 20,
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            isArabic ? 'جاري التحميل...' : 'Loading...',
-                            style: TextStyle(
-                              color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     )
                   : _appointments.isEmpty
                   ? Center(
@@ -1381,7 +1808,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             width: 90,
                             height: 90,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.10),
+                              color: const Color(
+                                0xFF10B981,
+                              ).withValues(alpha: 0.10),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -1396,7 +1825,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -1406,7 +1837,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                 : "Book your first appointment now",
                             style: TextStyle(
                               fontSize: 14,
-                              color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                              color: isDark
+                                  ? const Color(0xFF64748B)
+                                  : const Color(0xFF94A3B8),
                             ),
                           ),
                         ],
@@ -1508,8 +1941,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     final String doctorName = appointment['doctorName'] ?? '';
     final String initials = doctorName.isNotEmpty
         ? (doctorName.split(' ').length > 1
-            ? '${doctorName.split(' ')[0][0]}${doctorName.split(' ')[1][0]}'
-            : doctorName[0])
+              ? '${doctorName.split(' ')[0][0]}${doctorName.split(' ')[1][0]}'
+              : doctorName[0])
         : '?';
 
     return Container(
@@ -1524,9 +1957,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             offset: const Offset(0, 6),
           ),
         ],
-        border: Border(
-          left: BorderSide(color: accentColor, width: 4),
-        ),
+        border: Border(left: BorderSide(color: accentColor, width: 4)),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -1564,14 +1995,18 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 15,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         appointment['specialty'] ?? '',
                         style: TextStyle(
-                          color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                          color: isDark
+                              ? const Color(0xFF64748B)
+                              : const Color(0xFF94A3B8),
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                         ),
@@ -1588,7 +2023,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   child: Icon(
                     isCompletedTab
                         ? Icons.check_rounded
-                        : (isCanceledTab ? Icons.close_rounded : Icons.schedule_rounded),
+                        : Icons.schedule_rounded,
                     color: accentColor,
                     size: 18,
                   ),
@@ -1616,69 +2051,161 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             ),
             if (_tabIndex == 0) ...[
               const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _cancelAppointment(ctx, appointment['id']),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                      ),
-                      child: Text(
-                        isArabic ? 'إلغاء' : 'Cancel',
-                        style: const TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.w700),
+              // pending: بانتظار موافقة الطبيب + زرار إلغاء
+              if (appointment['status'] == 'pending') ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                          horizontal: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Colors.amber.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.hourglass_top_rounded,
+                              color: Colors.amber,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                isArabic
+                                    ? 'بانتظار موافقة الطبيب...'
+                                    : 'Awaiting doctor\'s approval...',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.amber,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF10B981), Color(0xFF059669)],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
+                    const SizedBox(width: 10),
+                    // زر الإلغاء الصغير للمريض
+                    IconButton(
+                      onPressed: () => _cancelAppointment(
+                        ctx,
+                        appointment['id'],
+                        appointment['firestoreId'],
                       ),
-                      child: ElevatedButton(
-                        onPressed: () => _completeAppointment(ctx, appointment['id']),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                        child: Text(
-                          isArabic ? 'تم' : 'Done',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                        ),
+                      icon: const Icon(
+                        Icons.cancel_outlined,
+                        color: Color(0xFFEF4444),
+                        size: 24,
                       ),
+                      tooltip: isArabic ? 'إلغاء الموعد' : 'Cancel Appointment',
                     ),
-                  ),
-                ],
-              ),
-            ],
-            if (isCanceledTab) ...[
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444).withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
+                    // زر الحذف النهائي (للتنظيف)
+                    IconButton(
+                      onPressed: () => _deleteAppointment(
+                        ctx,
+                        appointment['id'],
+                        appointment['firestoreId'],
+                      ),
+                      icon: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: Colors.grey,
+                        size: 22,
+                      ),
+                      tooltip: isArabic ? 'حذف نهائياً' : 'Delete Permanently',
+                    ),
+                  ],
                 ),
-                child: Center(
-                  child: Text(
-                    isArabic ? 'تم الإلغاء' : 'Appointment Canceled',
-                    style: const TextStyle(
-                      color: Color(0xFFEF4444),
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
+              ],
+              // accepted: الطبيب وافق → يظهر زرار Done بس
+              if (appointment['status'] == 'accepted') ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8,
+                    horizontal: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.check_circle_outline_rounded,
+                        color: Color(0xFF10B981),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        isArabic
+                            ? 'وافق الطبيب على موعدك ✅'
+                            : 'Doctor approved your appointment ✅',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF10B981),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF10B981), Color(0xFF059669)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(
+                            0xFF10B981,
+                          ).withValues(alpha: 0.35),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: () =>
+                          _completeAppointment(ctx, appointment['id']),
+                      icon: const Icon(
+                        Icons.task_alt_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      label: Text(
+                        isArabic ? 'تم الموعد' : 'Mark as Done',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ],
             if (isCompletedTab) ...[
               const SizedBox(height: 12),
@@ -1712,20 +2239,86 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   ),
                   child: ElevatedButton.icon(
                     onPressed: () => _showRatingDialog(ctx, appointment),
-                    icon: const Icon(Icons.star_rounded, color: Colors.white, size: 18),
+                    icon: const Icon(
+                      Icons.star_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                     label: Text(
                       isArabic ? 'تقييم الطبيب' : 'Rate Doctor',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 11),
                     ),
                   ),
                 ),
               ],
+            ],
+            if (isCanceledTab) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                        ),
+                      ),
+                      child: Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.cancel_outlined,
+                              color: Color(0xFFEF4444),
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              isArabic
+                                  ? 'تم إلغاء الموعد'
+                                  : 'Appointment Canceled',
+                              style: const TextStyle(
+                                color: Color(0xFFEF4444),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  IconButton(
+                    onPressed: () => _deleteAppointment(
+                      ctx,
+                      appointment['id'],
+                      appointment['firestoreId'],
+                    ),
+                    icon: const Icon(
+                      Icons.delete_sweep_rounded,
+                      color: Colors.grey,
+                      size: 24,
+                    ),
+                    tooltip: isArabic ? 'حذف من السجل' : 'Delete from history',
+                  ),
+                ],
+              ),
             ],
           ],
         ),
@@ -1758,53 +2351,96 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
-  void _showRatingDialog(BuildContext context, Map<String, dynamic> appointment) {
+  void _showRatingDialog(
+    BuildContext context,
+    Map<String, dynamic> appointment,
+  ) {
+    // CAPTURE MESSENGER STATE BEFORE ASYNC GAP (MOST ROBUST PATTERN)
+    final messenger = ScaffoldMessenger.of(context);
+
     showDialog(
       context: context,
-      builder: (context) => RatingDialog(
+      builder: (dialogContext) => RatingDialog(
         doctorName: appointment['doctorName'],
         onSubmitted: (rating) async {
-          // 1. Update local DB
-          await DatabaseHelper().markAppointmentAsRated(appointment['id']);
-          
-          // 2. Update Firestore if possible
           try {
-            final String? doctorId = appointment['doctorId'];
-            if (doctorId != null && doctorId.isNotEmpty) {
-              final docService = AppointmentService(); // We can use this to get firestore instance
-              final docRef = FirebaseFirestore.instance.collection('doctors').doc(doctorId);
-              
-              await FirebaseFirestore.instance.runTransaction((transaction) async {
-                final snapshot = await transaction.get(docRef);
-                if (snapshot.exists) {
-                  final data = snapshot.data()!;
-                  double currentRating = double.tryParse(data['rating']?.toString() ?? '0') ?? 0;
-                  int currentReviews = int.tryParse(data['reviews']?.toString() ?? '0') ?? 0;
-                  
-                  int newReviews = currentReviews + 1;
-                  double newRating = (currentRating * currentReviews + rating) / newReviews;
-                  
-                  transaction.update(docRef, {
-                    'rating': newRating.toStringAsFixed(1),
-                    'reviews': newReviews,
-                  });
-                }
-              });
+            // 1. UPDATE LOCAL DB (Isolate)
+            try {
+              final dynamic rawId = appointment['id'];
+              final int? intId = rawId is int
+                  ? rawId
+                  : int.tryParse(rawId.toString());
+              if (intId != null && !kIsWeb) {
+                await DatabaseHelper().markAppointmentAsRated(intId);
+              }
+            } catch (e) {
+              debugPrint('⚠️ SQLite Rating Error: $e');
+            }
+
+            // 2. UPDATE FIRESTORE (Isolate)
+            try {
+              final String? doctorId = appointment['doctorId'];
+              if (doctorId != null && doctorId.isNotEmpty) {
+                final docRef = FirebaseFirestore.instance
+                    .collection('doctors')
+                    .doc(doctorId);
+                await FirebaseFirestore.instance
+                    .runTransaction((transaction) async {
+                      final snapshot = await transaction.get(docRef);
+                      if (snapshot.exists) {
+                        final data = snapshot.data()!;
+                        double currentRating =
+                            double.tryParse(
+                              data['rating']?.toString() ?? '0',
+                            ) ??
+                            0;
+                        int currentReviews =
+                            int.tryParse(data['reviews']?.toString() ?? '0') ??
+                            0;
+                        int newReviews = currentReviews + 1;
+                        double newRating =
+                            (currentRating * currentReviews + rating) /
+                            newReviews;
+                        transaction.update(docRef, {
+                          'rating': newRating.toStringAsFixed(1),
+                          'reviews': newReviews,
+                        });
+                      }
+                    })
+                    .timeout(const Duration(seconds: 8));
+              }
+            } catch (e) {
+              debugPrint('⚠️ Firestore Rating Error: $e');
+            }
+
+            // 3. UI FEEDBACK (Check Mounted)
+            if (mounted) {
+              _loadAppointments();
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    isArabic
+                        ? "شكراً لتقييمك! ❤️"
+                        : "Thank you for your rating! ❤️",
+                  ),
+                  backgroundColor: Colors.blue,
+                ),
+              );
             }
           } catch (e) {
-            debugPrint('Error updating doctor rating in Firestore: $e');
-          }
-
-          if (mounted) {
-            _loadAppointments();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(isArabic 
-                  ? "شكراً لتقييمك! ❤️" 
-                  : "Thank you for your rating! ❤️"),
-                backgroundColor: Colors.blue,
-              ),
-            );
+            debugPrint('❌ Total Rating System Failure: $e');
+            if (mounted) {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    isArabic
+                        ? "عذراً، حدث خطأ غير متوقع"
+                        : "Sorry, an unexpected error occurred",
+                  ),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
+            }
           }
         },
       ),
@@ -1828,9 +2464,35 @@ class RatingDialog extends StatefulWidget {
 
 class _RatingDialogState extends State<RatingDialog> {
   double _rating = 5;
+  bool _isSubmitted = false;
 
   @override
   Widget build(BuildContext context) {
+    // SUCCESS STATE — show checkmark after submission
+    if (_isSubmitted) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            const Icon(
+              Icons.check_circle_rounded,
+              color: Color(0xFF10B981),
+              size: 72,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              isArabic ? 'شكراً لتقييمك! ❤️' : 'Thank you for rating! ❤️',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      );
+    }
+
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Text(
@@ -1842,9 +2504,9 @@ class _RatingDialogState extends State<RatingDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            isArabic 
-              ? "كيف كانت تجربتك مع ${widget.doctorName}؟" 
-              : "How was your experience with ${widget.doctorName}?",
+            isArabic
+                ? "كيف كانت تجربتك مع ${widget.doctorName}؟"
+                : "How was your experience with ${widget.doctorName}?",
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
@@ -1855,9 +2517,11 @@ class _RatingDialogState extends State<RatingDialog> {
                 return IconButton(
                   onPressed: () => setState(() => _rating = index + 1.0),
                   icon: Icon(
-                    index < _rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                    index < _rating
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
                     color: Colors.amber[700],
-                    size: 36, // Slightly reduced from 40
+                    size: 36,
                   ),
                 );
               }),
@@ -1871,13 +2535,20 @@ class _RatingDialogState extends State<RatingDialog> {
           child: Text(isArabic ? "إلغاء" : "Cancel"),
         ),
         ElevatedButton(
-          onPressed: () {
+          onPressed: () async {
+            // Show success state immediately
+            setState(() => _isSubmitted = true);
+            // Run submission in background
             widget.onSubmitted(_rating);
-            Navigator.pop(context);
+            // Auto-close after showing the success state
+            await Future.delayed(const Duration(milliseconds: 1500));
+            if (context.mounted) Navigator.pop(context);
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blue,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
           child: Text(
             isArabic ? "إرسال" : "Submit",
@@ -1918,10 +2589,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String userGender = "";
   String? _imagePath;
 
+  int _appointmentsCount = 0;
+  int _underCareCount = 0;
+  int _recordsCount = 0;
+  StreamSubscription<QuerySnapshot>? _appointmentsSub;
+  StreamSubscription<QuerySnapshot>? _recordsSub;
+
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _listenToStats();
+  }
+
+  void _listenToStats() {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    _appointmentsSub = FirebaseFirestore.instance
+        .collection('appointments')
+        .where('patientId', isEqualTo: userId)
+        .snapshots()
+        .listen((snapshot) {
+          int apptCount = 0;
+          Set<String> uniqueDoctors = {};
+          for (var doc in snapshot.docs) {
+            final data = doc.data();
+            final status = data['status'] ?? 'pending';
+            // لا نحتسب المواعيد الملغية أو المرفوضة
+            if (status != 'cancelled' && status != 'rejected') {
+              apptCount++;
+              final doctorId = data['doctorId'];
+              if (doctorId != null && doctorId.toString().isNotEmpty) {
+                uniqueDoctors.add(doctorId.toString());
+              }
+            }
+          }
+          if (mounted) {
+            setState(() {
+              _appointmentsCount = apptCount;
+              _underCareCount = uniqueDoctors.length;
+            });
+          }
+        });
+
+    _recordsSub = FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('medical_records')
+        .snapshots()
+        .listen((snapshot) {
+          if (mounted) {
+            setState(() {
+              _recordsCount = snapshot.docs.length;
+            });
+          }
+        });
+  }
+
+  @override
+  void dispose() {
+    _appointmentsSub?.cancel();
+    _recordsSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -2059,6 +2789,333 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // === DELETE ACCOUNT FEATURE ===
+
+  /// مسح كل بيانات المستخدم من Firestore وStorage (تُستدعى بعد نجاح الحذف)
+  Future<void> _purgeUserData(String uid) async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final userDoc = firestore.collection('users').doc(uid);
+
+      // مسح medical_records subcollection
+      try {
+        final records = await userDoc.collection('medical_records').get();
+        for (final doc in records.docs) {
+          await doc.reference.delete();
+        }
+      } catch (_) {}
+
+      // مسح notifications من الـ root collection
+      try {
+        final notifs = await firestore
+            .collection('notifications')
+            .where('recipientId', isEqualTo: uid)
+            .get();
+        for (final doc in notifs.docs) {
+          await doc.reference.delete();
+        }
+      } catch (_) {}
+
+      // مسح appointments من الـ root collection
+      try {
+        final appts = await firestore
+            .collection('appointments')
+            .where('patientId', isEqualTo: uid)
+            .get();
+        for (final doc in appts.docs) {
+          await doc.reference.delete();
+        }
+      } catch (_) {}
+
+      // مسح الملفات من Firebase Storage
+      try {
+        final storageRef = FirebaseStorage.instance.ref().child('uploads/$uid');
+        final listResult = await storageRef.listAll();
+        for (final item in listResult.items) {
+          await item.delete();
+        }
+      } catch (_) {}
+
+      // مسح document المستخدم الرئيسي آخر حاجة
+      try {
+        await userDoc.delete();
+      } catch (_) {}
+    } catch (_) {
+      // نكمل حتى لو فشل مسح البيانات — الحساب اتحذف
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final uid = user.uid;
+
+    // نحاول نحذف الـ auth account أولاً
+    try {
+      await user.delete();
+
+      // نجح الحذف → نمسح البيانات
+      await _purgeUserData(uid);
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LoginScreen(
+              toggleTheme: widget.toggleTheme ?? () {},
+              isDark: widget.isDark ?? false,
+            ),
+          ),
+          (route) => false,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      // Firebase طلبت re-authentication
+      if (e.code == 'requires-recent-login') {
+        if (mounted) {
+          _showReAuthAndDeleteDialog(user);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isArabic ? 'حدث خطأ: ${e.message}' : 'Error: ${e.message}',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('DeleteAccount unexpected error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isArabic
+                  ? 'حدث خطأ غير متوقع. حاول مرة أخرى.'
+                  : 'Unexpected error. Please try again.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// شاشة إعادة المصادقة بالـ OTP لو الجلسة قديمة
+  void _showReAuthAndDeleteDialog(User user) {
+    bool isLoading = false;
+    bool obscurePassword = true;
+    final passwordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.shield_outlined, color: Colors.red),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isArabic
+                      ? 'تأكيد الهوية لحذف الحساب'
+                      : 'Verify to Delete Account',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                isArabic
+                    ? 'يرجى إدخال كلمة المرور لتأكيد حذف حسابك نهائياً.'
+                    : 'Please enter your password to confirm permanent account deletion.',
+                style: const TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: obscurePassword,
+                decoration: InputDecoration(
+                  hintText: isArabic ? 'كلمة المرور' : 'Password',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      size: 20,
+                    ),
+                    onPressed: () => setDialogState(
+                      () => obscurePassword = !obscurePassword,
+                    ),
+                  ),
+                ),
+              ),
+              if (isLoading)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: LinearProgressIndicator(),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                isArabic ? 'إلغاء' : 'Cancel',
+                style: const TextStyle(color: Colors.grey),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      final password = passwordController.text;
+                      if (password.isEmpty) return;
+
+                      setDialogState(() => isLoading = true);
+                      try {
+                        final email = user.email;
+                        if (email == null) {
+                          throw Exception(
+                            isArabic
+                                ? "لم يتم العثور على بريد إلكتروني"
+                                : "Email not found",
+                          );
+                        }
+
+                        final credential = EmailAuthProvider.credential(
+                          email: email,
+                          password: password,
+                        );
+                        await user.reauthenticateWithCredential(credential);
+
+                        Navigator.pop(ctx);
+                        final uid = user.uid;
+                        await user.delete();
+                        await _purgeUserData(uid);
+
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.clear();
+
+                        if (mounted) {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => LoginScreen(
+                                toggleTheme: widget.toggleTheme ?? () {},
+                                isDark: widget.isDark ?? false,
+                              ),
+                            ),
+                            (route) => false,
+                          );
+                        }
+                      } on FirebaseAuthException catch (e) {
+                        setDialogState(() => isLoading = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              isArabic
+                                  ? 'كلمة مرور خاطئة أو مشكلة في السيرفر: ${e.message}'
+                                  : 'Incorrect password or server error: ${e.message}',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      } catch (e) {
+                        setDialogState(() => isLoading = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              isArabic
+                                  ? 'حدث خطأ غير متوقع: $e'
+                                  : 'Unexpected error: $e',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+              child: Text(
+                isArabic ? 'تأكيد الحذف' : 'Confirm Delete',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.red),
+            const SizedBox(width: 8),
+            Text(isArabic ? 'حذف الحساب نهائياً' : 'Delete Account Forever'),
+          ],
+        ),
+        content: Text(
+          isArabic
+              ? 'هل أنت متأكد من حذف الحساب بشكل نهائي؟ لا يمكن التراجع عن هذه الخطوة وسيتم مسح كافة سجلاتك الطبية وبياناتك.'
+              : 'Are you sure you want to delete your account permanently? This action cannot be undone and all your medical records and data will be erased.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              isArabic ? 'إلغاء' : 'Cancel',
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteAccount();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              isArabic ? 'حذف نهائي' : 'Delete Forever',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -2104,7 +3161,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           padding: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                            color: isDark
+                                ? const Color(0xFF1E293B)
+                                : Colors.white,
                           ),
                           child: CircleAvatar(
                             radius: 56,
@@ -2112,8 +3171,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 (widget.profileImage != null &&
                                     !kIsWeb &&
                                     File(widget.profileImage!).existsSync())
-                                ? FileImage(File(widget.profileImage!)) as ImageProvider
-                                : const AssetImage('assets/images/doctor_big_preview.png'),
+                                ? FileImage(File(widget.profileImage!))
+                                      as ImageProvider
+                                : const AssetImage(
+                                    'assets/images/doctor_big_preview.png',
+                                  ),
                           ),
                         ),
                       ),
@@ -2131,13 +3193,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF10B981).withValues(alpha: 0.40),
+                                  color: const Color(
+                                    0xFF10B981,
+                                  ).withValues(alpha: 0.40),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
-                            child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 18),
+                            child: const Icon(
+                              Icons.camera_alt_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
                           ),
                         ),
                       ),
@@ -2161,7 +3229,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                      color: isDark
+                          ? const Color(0xFF64748B)
+                          : const Color(0xFF94A3B8),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -2169,11 +3239,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildProfileStat(isArabic ? 'مواعيد' : 'Appointments', '0', isDark),
-                      Container(width: 1, height: 32, color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), margin: const EdgeInsets.symmetric(horizontal: 24)),
-                      _buildProfileStat(isArabic ? 'تحت المتابعة' : 'Under Care', '1', isDark),
-                      Container(width: 1, height: 32, color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), margin: const EdgeInsets.symmetric(horizontal: 24)),
-                      _buildProfileStat(isArabic ? 'سجلات' : 'Records', '0', isDark),
+                      _buildProfileStat(
+                        isArabic ? 'مواعيد' : 'Appointments',
+                        _appointmentsCount.toString(),
+                        isDark,
+                      ),
+                      Container(
+                        width: 1,
+                        height: 32,
+                        color: isDark
+                            ? const Color(0xFF334155)
+                            : const Color(0xFFE2E8F0),
+                        margin: const EdgeInsets.symmetric(horizontal: 24),
+                      ),
+                      _buildProfileStat(
+                        isArabic ? 'تحت المتابعة' : 'Under Care',
+                        _underCareCount.toString(),
+                        isDark,
+                      ),
+                      Container(
+                        width: 1,
+                        height: 32,
+                        color: isDark
+                            ? const Color(0xFF334155)
+                            : const Color(0xFFE2E8F0),
+                        margin: const EdgeInsets.symmetric(horizontal: 24),
+                      ),
+                      _buildProfileStat(
+                        isArabic ? 'سجلات' : 'Records',
+                        _recordsCount.toString(),
+                        isDark,
+                      ),
                     ],
                   ),
                 ],
@@ -2219,7 +3315,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => EditProfileScreen(currentName: widget.userName),
+                            builder: (context) =>
+                                EditProfileScreen(currentName: widget.userName),
                           ),
                         ).then((newName) {
                           if (newName != null) widget.onNameChanged(newName);
@@ -2245,7 +3342,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildProfileOption(
                       Icons.notifications_none_rounded,
                       isArabic ? 'الإشعارات' : 'Notifications',
-                      () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen())),
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationScreen(),
+                        ),
+                      ),
                       isDark: isDark,
                       color: const Color(0xFFF97316),
                     ),
@@ -2253,27 +3355,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   const SizedBox(height: 20),
                   // === Support section ===
-                  _buildSectionHeader(isArabic ? 'دعم ومعلومات' : 'Support', isDark),
+                  _buildSectionHeader(
+                    isArabic ? 'دعم ومعلومات' : 'Support',
+                    isDark,
+                  ),
                   const SizedBox(height: 8),
                   _buildSettingsCard([
                     _buildProfileOption(
                       Icons.privacy_tip_outlined,
                       isArabic ? 'الخصوصية' : 'Privacy Policy',
-                      () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen())),
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const PrivacyPolicyScreen(),
+                        ),
+                      ),
                       isDark: isDark,
                       color: const Color(0xFF8B5CF6),
                     ),
                     _buildProfileOption(
                       Icons.help_outline_rounded,
                       isArabic ? 'عنا' : 'About Us',
-                      () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutUsScreen())),
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AboutUsScreen(),
+                        ),
+                      ),
                       isDark: isDark,
                       color: const Color(0xFF0EA5E9),
                     ),
                     _buildProfileOption(
                       Icons.volunteer_activism_rounded,
                       isArabic ? 'تبرع' : 'Donate',
-                      () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DonateScreen())),
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const DonateScreen()),
+                      ),
                       isDark: isDark,
                       color: const Color(0xFFF43F5E),
                     ),
@@ -2292,7 +3410,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFEF4444).withValues(alpha: 0.30),
+                          color: const Color(
+                            0xFFEF4444,
+                          ).withValues(alpha: 0.30),
                           blurRadius: 14,
                           offset: const Offset(0, 6),
                         ),
@@ -2316,7 +3436,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                         }
                       },
-                      icon: const Icon(Icons.logout_rounded, color: Colors.white, size: 20),
+                      icon: const Icon(
+                        Icons.logout_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                       label: Text(
                         isArabic ? 'تسجيل خروج' : 'Log Out',
                         style: const TextStyle(
@@ -2329,7 +3453,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         backgroundColor: Colors.transparent,
                         shadowColor: Colors.transparent,
                         padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // === Delete Account ===
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.5),
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.05),
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showDeleteAccountDialog(context),
+                      icon: const Icon(
+                        Icons.delete_sweep_rounded,
+                        color: Color(0xFFEF4444),
+                        size: 20,
+                      ),
+                      label: Text(
+                        isArabic
+                            ? 'حذف الحساب نهائياً'
+                            : 'Delete Account Forever',
+                        style: const TextStyle(
+                          color: Color(0xFFEF4444),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
                     ),
                   ),
@@ -2396,24 +3561,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       child: Column(
-        children: children
-            .asMap()
-            .entries
-            .map((entry) {
-              final isLast = entry.key == children.length - 1;
-              return Column(
-                children: [
-                  entry.value,
-                  if (!isLast)
-                    Divider(
-                      height: 1,
-                      indent: 56,
-                      color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF1F5F9),
-                    ),
-                ],
-              );
-            })
-            .toList(),
+        children: children.asMap().entries.map((entry) {
+          final isLast = entry.key == children.length - 1;
+          return Column(
+            children: [
+              entry.value,
+              if (!isLast)
+                Divider(
+                  height: 1,
+                  indent: 56,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : const Color(0xFFF1F5F9),
+                ),
+            ],
+          );
+        }).toList(),
       ),
     );
   }
@@ -2445,11 +3608,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           color: isDark ? Colors.white : const Color(0xFF0F172A),
         ),
       ),
-      trailing: trailing ?? Icon(
-        Icons.arrow_forward_ios_rounded,
-        size: 14,
-        color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
-      ),
+      trailing:
+          trailing ??
+          Icon(
+            Icons.arrow_forward_ios_rounded,
+            size: 14,
+            color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+          ),
       onTap: trailing == null ? onTap : null,
     );
   }
@@ -2482,13 +3647,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
         if (doc.exists && mounted) {
           final data = doc.data()!;
           _firstNameController.text = data['firstName'] ?? '';
           _lastNameController.text = data['lastName'] ?? '';
           _phoneController.text = data['phoneNumber'] ?? '';
-          
+
           if (_firstNameController.text.isEmpty && data.containsKey('name')) {
             final String existingName = data['name'] ?? widget.currentName;
             final parts = existingName.trim().split(' ');
@@ -2522,7 +3690,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _saveProfile() async {
     final authService = AuthService();
     final user = authService.getCurrentUser();
-    final String newFullName = "${_firstNameController.text.trim()} ${_lastNameController.text.trim()}".trim();
+    final String newFullName =
+        "${_firstNameController.text.trim()} ${_lastNameController.text.trim()}"
+            .trim();
 
     if (user != null) {
       await FirebaseFirestore.instance
@@ -2532,7 +3702,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             'firstName': _firstNameController.text.trim(),
             'lastName': _lastNameController.text.trim(),
             'phoneNumber': _phoneController.text.trim(),
-            'name': newFullName, 
+            'name': newFullName,
             'updatedAt': FieldValue.serverTimestamp(),
           });
     }
@@ -2550,93 +3720,123 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark
+          ? const Color(0xFF0F172A)
+          : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(isArabic ? "تعديل الحساب" : "Edit Profile",
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        title: Text(
+          isArabic ? "تعديل الحساب" : "Edit Profile",
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+        ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
       ),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: Color(0xFF0EA5E9)))
-        : SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isArabic ? 'المعلومات الشخصية' : 'Personal Information',
-                  style: TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : const Color(0xFF1E293B),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  isArabic ? 'قم بتحديث بياناتك للظهور للأطباء' : 'Update your details so doctors can identify you',
-                  style: TextStyle(fontSize: 14, color: isDark ? Colors.grey[400] : Colors.grey[600]),
-                ),
-                const SizedBox(height: 28),
-
-                Row(
-                  children: [
-                    Expanded(child: _buildTextField(
-                      controller: _firstNameController,
-                      label: isArabic ? 'الاسم الأول' : 'First Name',
-                      icon: Icons.person_outline_rounded,
-                      isDark: isDark,
-                    )),
-                    const SizedBox(width: 16),
-                    Expanded(child: _buildTextField(
-                      controller: _lastNameController,
-                      label: isArabic ? 'اسم العائلة' : 'Last Name',
-                      icon: Icons.badge_outlined,
-                      isDark: isDark,
-                    )),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                _buildTextField(
-                  controller: _phoneController,
-                  label: isArabic ? 'رقم الهاتف' : 'Phone Number',
-                  icon: Icons.phone_outlined,
-                  keyboardType: TextInputType.phone,
-                  isDark: isDark,
-                ),
-                const SizedBox(height: 40),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      if (_firstNameController.text.trim().isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(isArabic ? 'يرجى إدخال الاسم الأول' : 'Please enter your first name'), backgroundColor: Colors.red),
-                        );
-                        return;
-                      }
-                      await _saveProfile();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0EA5E9),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      shadowColor: const Color(0xFF0EA5E9).withValues(alpha: 0.5),
-                    ),
-                    child: Text(
-                      isArabic ? 'حفظ التغييرات' : 'Save Changes',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF0EA5E9)),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isArabic ? 'المعلومات الشخصية' : 'Personal Information',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : const Color(0xFF1E293B),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    isArabic
+                        ? 'قم بتحديث بياناتك للظهور للأطباء'
+                        : 'Update your details so doctors can identify you',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildTextField(
+                          controller: _firstNameController,
+                          label: isArabic ? 'الاسم الأول' : 'First Name',
+                          icon: Icons.person_outline_rounded,
+                          isDark: isDark,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildTextField(
+                          controller: _lastNameController,
+                          label: isArabic ? 'اسم العائلة' : 'Last Name',
+                          icon: Icons.badge_outlined,
+                          isDark: isDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  _buildTextField(
+                    controller: _phoneController,
+                    label: isArabic ? 'رقم الهاتف' : 'Phone Number',
+                    icon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 40),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (_firstNameController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                isArabic
+                                    ? 'يرجى إدخال الاسم الأول'
+                                    : 'Please enter your first name',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        await _saveProfile();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0EA5E9),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        shadowColor: const Color(
+                          0xFF0EA5E9,
+                        ).withValues(alpha: 0.5),
+                      ),
+                      child: Text(
+                        isArabic ? 'حفظ التغييرات' : 'Save Changes',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
     );
   }
 
@@ -2654,7 +3854,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10, offset: const Offset(0, 4),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -2667,7 +3868,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 13),
+          labelStyle: TextStyle(
+            color: isDark ? Colors.grey[400] : Colors.grey[600],
+            fontSize: 13,
+          ),
           prefixIcon: Icon(icon, color: const Color(0xFF0EA5E9), size: 20),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
@@ -2675,7 +3879,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
           filled: true,
           fillColor: Colors.transparent,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
         ),
       ),
     );
@@ -2738,6 +3945,7 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
   model.Appointment? _latestAppointment;
   List<model.Appointment> _allAppointments = [];
   List<ActiveMedication> _activeMedications = [];
+  int _doneMedsCount = 0;
   bool _isLoading = true;
 
   @override
@@ -2748,51 +3956,79 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
 
   void _fetchUserData() {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) { setState(() => _isLoading = false); return; }
+    if (user == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
 
-    AppointmentService().getPatientAppointments(user.uid).listen((appointments) {
+    AppointmentService().getPatientAppointments(user.uid).listen((
+      appointments,
+    ) {
       if (!mounted) return;
-      
+
       // Sort to find the absolute latest one (completed or confirmed) for the "Last Visit" card
       List<model.Appointment> sorted = List.from(appointments);
       sorted.sort((a, b) => b.dateTime.compareTo(a.dateTime));
-      
+
       model.Appointment? latest;
       try {
-        latest = sorted.firstWhere((a) => a.status == 'completed' || (a.status == 'confirmed' && a.prescriptions != null && a.prescriptions!.isNotEmpty));
+        latest = sorted.firstWhere(
+          (a) =>
+              a.status == 'completed' ||
+              (a.status == 'confirmed' &&
+                  a.prescriptions != null &&
+                  a.prescriptions!.isNotEmpty),
+        );
       } catch (_) {
         if (sorted.isNotEmpty) latest = sorted.first;
       }
 
       // Collect ALL active medications from ALL appointments (newest first)
-      List<ActiveMedication> allActiveMeds = [];
-      for (var appt in sorted) {
-        if (appt.status == 'completed' || appt.status == 'confirmed' || appt.status == 'pending') {
-          if (appt.prescriptions != null) {
-            for (var med in appt.prescriptions!) {
-              // Show all prescriptions for now to diagnose visibility issues
-              if (true || _isMedicationActive(appt.dateTime, med)) {
-                // Check if permanently dismissed in this appointment
-                bool isPermanentlyDismissed = false;
-                final data = appt.id; // We need the actual data from the appointment map if available
-                // Wait, appointments in YourHealthScreen are model.Appointment objects.
-                // Does model.Appointment have the medicationTracker field?
-                // I need to check the model.
-                if (!allActiveMeds.any((am) => am.prescription.medicineName.trim().toLowerCase() == med.medicineName.trim().toLowerCase())) {
-                  allActiveMeds.add(ActiveMedication(med, appt.id));
+      Future<void> calculateMeds() async {
+        final prefs = await SharedPreferences.getInstance();
+        List<ActiveMedication> allActiveMeds = [];
+        int doneCount = 0;
+
+        for (var appt in sorted) {
+          if (appt.status == 'completed' ||
+              appt.status == 'confirmed' ||
+              appt.status == 'pending') {
+            if (appt.prescriptions != null) {
+              for (var med in appt.prescriptions!) {
+                final isDone =
+                    prefs.getBool('done_med_${appt.id}_${med.medicineName}') ??
+                    false;
+                if (isDone) {
+                  doneCount++;
+                  continue;
+                }
+
+                if (true || _isMedicationActive(appt.dateTime, med)) {
+                  if (!allActiveMeds.any(
+                    (am) =>
+                        am.prescription.medicineName.trim().toLowerCase() ==
+                        med.medicineName.trim().toLowerCase(),
+                  )) {
+                    allActiveMeds.add(ActiveMedication(med, appt.id));
+                  }
                 }
               }
             }
           }
         }
+
+        if (mounted) {
+          setState(() {
+            _latestAppointment = latest;
+            _allAppointments = appointments;
+            _activeMedications = allActiveMeds;
+            _doneMedsCount = doneCount;
+            _isLoading = false;
+          });
+        }
       }
 
-      setState(() {
-        _latestAppointment = latest;
-        _allAppointments = appointments;
-        _activeMedications = allActiveMeds;
-        _isLoading = false;
-      });
+      calculateMeds();
     });
   }
 
@@ -2842,7 +4078,9 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark
+          ? const Color(0xFF0F172A)
+          : const Color(0xFFF8FAFC),
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
@@ -2867,13 +4105,29 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
                     ),
                   ),
                   Positioned(
-                    top: -30, right: -30,
-                    child: Container(width: 150, height: 150,
-                      decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.04)))),
+                    top: -30,
+                    right: -30,
+                    child: Container(
+                      width: 150,
+                      height: 150,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.04),
+                      ),
+                    ),
+                  ),
                   Positioned(
-                    bottom: -20, left: 40,
-                    child: Container(width: 100, height: 100,
-                      decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF10B981).withValues(alpha: 0.15)))),
+                    bottom: -20,
+                    left: 40,
+                    child: Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                      ),
+                    ),
+                  ),
                   SafeArea(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
@@ -2881,31 +4135,79 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Row(children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
-                              child: const Icon(Icons.health_and_safety_rounded, color: Colors.white, size: 26),
-                            ),
-                            const SizedBox(width: 14),
-                            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(isArabic ? 'صحتي' : 'My Health',
-                                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.5)),
-                              Text(isArabic ? 'أدويتك ونصائح طبيبك' : 'Your meds & doctor advice',
-                                style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.7))),
-                            ]),
-                          ]),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(
+                                  Icons.health_and_safety_rounded,
+                                  color: Colors.white,
+                                  size: 26,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isArabic ? 'صحتي' : 'My Health',
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                  Text(
+                                    isArabic
+                                        ? 'أدويتك ونصائح طبيبك'
+                                        : 'Your meds & doctor advice',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.7,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 20),
-                          Row(children: [
-                            _headerStat(_allAppointments.where((a) => a.status == 'completed').length.toString(),
-                              isArabic ? 'مكتملة' : 'Completed', Icons.check_circle_outline_rounded),
-                            const SizedBox(width: 10),
-                            _headerStat(_activeMedications.length.toString(),
-                              isArabic ? 'دواء فعّال' : 'Active Meds', Icons.medication_rounded),
-                            const SizedBox(width: 10),
-                            _headerStat(_allAppointments.where((a) => a.status == 'pending').length.toString(),
-                              isArabic ? 'قادم' : 'Upcoming', Icons.event_rounded),
-                          ]),
+                          Row(
+                            children: [
+                              _headerStat(
+                                (_allAppointments
+                                            .where(
+                                              (a) => a.status == 'completed',
+                                            )
+                                            .length +
+                                        _doneMedsCount)
+                                    .toString(),
+                                isArabic ? 'مكتملة' : 'Completed',
+                                Icons.check_circle_outline_rounded,
+                              ),
+                              const SizedBox(width: 10),
+                              _headerStat(
+                                _activeMedications.length.toString(),
+                                isArabic ? 'دواء فعّال' : 'Active Meds',
+                                Icons.medication_rounded,
+                              ),
+                              const SizedBox(width: 10),
+                              _headerStat(
+                                _allAppointments
+                                    .where((a) => a.status == 'pending')
+                                    .length
+                                    .toString(),
+                                isArabic ? 'قادم' : 'Upcoming',
+                                Icons.event_rounded,
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -2916,125 +4218,260 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
           ),
           if (_isLoading)
             const SliverFillRemaining(
-              child: Center(child: SizedBox(width: 40, height: 40,
-                child: CircularProgressIndicator(color: Color(0xFF10B981), strokeWidth: 3))))
+              child: Center(
+                child: SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF10B981),
+                    strokeWidth: 3,
+                  ),
+                ),
+              ),
+            )
           else
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   // Quick Actions
-                  _sectionTitle(isArabic ? 'إجراءات سريعة' : 'Quick Actions', isDark),
+                  _sectionTitle(
+                    isArabic ? 'إجراءات سريعة' : 'Quick Actions',
+                    isDark,
+                  ),
                   const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(child: _quickAction(
-                      icon: Icons.medication_rounded,
-                      label: isArabic ? 'أدويتي\nوتذكيراتي' : 'My Meds\n& Reminders',
-                      color: const Color(0xFF10B981),
-                      onTap: () async {
-                        await Navigator.push(context, MaterialPageRoute(builder: (_) => const MedicationRemindersScreen()));
-                        setState(() {});
-                      },
-                      isDark: isDark,
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(child: _quickAction(
-                      icon: Icons.upload_file_rounded,
-                      label: isArabic ? 'ملفات\nطبية' : 'Medical\nRecords',
-                      color: const Color(0xFF8B5CF6),
-                      onTap: () => widget.onTabChange(2),
-                      isDark: isDark,
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(child: _quickAction(
-                      icon: Icons.calendar_month_rounded,
-                      label: isArabic ? 'مواعيدي\nالقادمة' : 'My\nSchedule',
-                      color: const Color(0xFF0EA5E9),
-                      onTap: () => widget.onTabChange(1),
-                      isDark: isDark,
-                    )),
-                  ]),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _quickAction(
+                          icon: Icons.medication_rounded,
+                          label: isArabic
+                              ? 'أدويتي\nوتذكيراتي'
+                              : 'My Meds\n& Reminders',
+                          color: const Color(0xFF10B981),
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const MedicationRemindersScreen(),
+                              ),
+                            );
+                            setState(() {});
+                          },
+                          isDark: isDark,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _quickAction(
+                          icon: Icons.upload_file_rounded,
+                          label: isArabic ? 'ملفات\nطبية' : 'Medical\nRecords',
+                          color: const Color(0xFF8B5CF6),
+                          onTap: () => widget.onTabChange(2),
+                          isDark: isDark,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _quickAction(
+                          icon: Icons.calendar_month_rounded,
+                          label: isArabic ? 'مواعيدي\nالقادمة' : 'My\nSchedule',
+                          color: const Color(0xFF0EA5E9),
+                          onTap: () => widget.onTabChange(1),
+                          isDark: isDark,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 28),
                   // Latest Visit card
                   if (_latestAppointment != null) ...[
-                    _sectionTitle(isArabic ? 'آخر زيارة' : 'Last Visit', isDark),
+                    _sectionTitle(
+                      isArabic ? 'آخر زيارة' : 'Last Visit',
+                      isDark,
+                    ),
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [Color(0xFF0EA5E9), Color(0xFF10B981)],
-                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: [BoxShadow(color: const Color(0xFF0EA5E9).withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8))],
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFF0EA5E9,
+                            ).withValues(alpha: 0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
                       ),
-                      child: Row(children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
-                          child: const Icon(Icons.person_rounded, color: Colors.white, size: 28),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(isArabic ? 'وصفة بواسطة' : 'Prescribed by',
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12)),
-                          Text('${isArabic ? "د." : "Dr."} ${_latestAppointment!.doctorName}',
-                            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
-                          Text(_latestAppointment!.specialty,
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13)),
-                        ])),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
-                          child: Text(DateFormat('dd MMM').format(_latestAppointment!.dateTime),
-                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
-                        ),
-                      ]),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.person_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isArabic ? 'وصفة بواسطة' : 'Prescribed by',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.75),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  '${isArabic ? "د." : "Dr."} ${_latestAppointment!.doctorName}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                Text(
+                                  _latestAppointment!.specialty,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              DateFormat(
+                                'dd MMM',
+                              ).format(_latestAppointment!.dateTime),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 28),
                   ],
                   // Doctor Notes
                   if (_latestAppointment?.doctorNotes?.isNotEmpty ?? false) ...[
-                    _sectionTitle(isArabic ? 'تعليمات الطبيب' : 'Doctor\'s Notes', isDark),
+                    _sectionTitle(
+                      isArabic ? 'تعليمات الطبيب' : 'Doctor\'s Notes',
+                      isDark,
+                    ),
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: isDark ? const Color(0xFF1E293B) : Colors.white,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: Colors.blue.withValues(alpha: 0.15)),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
-                      ),
-                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                          child: const Icon(Icons.sticky_note_2_rounded, color: Colors.blue, size: 18),
+                        border: Border.all(
+                          color: Colors.blue.withValues(alpha: 0.15),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text(_latestAppointment!.doctorNotes!,
-                          style: TextStyle(fontSize: 14, height: 1.5, color: isDark ? Colors.grey[300] : const Color(0xFF475569)))),
-                      ]),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.sticky_note_2_rounded,
+                              color: Colors.blue,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _latestAppointment!.doctorNotes!,
+                              style: TextStyle(
+                                fontSize: 14,
+                                height: 1.5,
+                                color: isDark
+                                    ? Colors.grey[300]
+                                    : const Color(0xFF475569),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 28),
                   ],
                   // Active Meds
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    _sectionTitle(isArabic ? 'الأدوية الفعّالة' : 'Active Medications', isDark),
-                    if (_activeMedications.isNotEmpty)
-                      GestureDetector(
-                        onTap: () async {
-                          await Navigator.push(context, MaterialPageRoute(builder: (_) => const MedicationRemindersScreen()));
-                          setState(() {});
-                        },
-                        child: ShaderMask(
-                          shaderCallback: (b) => const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF10B981)]).createShader(b),
-                          child: Text(isArabic ? 'إدارة التنبيهات' : 'Manage Reminders',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
-                        ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _sectionTitle(
+                        isArabic ? 'الأدوية الفعّالة' : 'Active Medications',
+                        isDark,
                       ),
-                  ]),
+                      if (_activeMedications.isNotEmpty)
+                        GestureDetector(
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const MedicationRemindersScreen(),
+                              ),
+                            );
+                            setState(() {});
+                          },
+                          child: ShaderMask(
+                            shaderCallback: (b) => const LinearGradient(
+                              colors: [Color(0xFF0EA5E9), Color(0xFF10B981)],
+                            ).createShader(b),
+                            child: Text(
+                              isArabic ? 'إدارة التنبيهات' : 'Manage Reminders',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   if (_activeMedications.isEmpty)
                     _noMedsCard(isDark)
@@ -3042,17 +4479,38 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
                     ..._activeMedications.map((med) => _medCard(med, isDark)),
                   const SizedBox(height: 28),
                   // Health Tips
-                  _sectionTitle(isArabic ? 'نصائح صحية' : 'Health Tips', isDark),
+                  _sectionTitle(
+                    isArabic ? 'نصائح صحية' : 'Health Tips',
+                    isDark,
+                  ),
                   const SizedBox(height: 12),
-                  _tipCard(Icons.water_drop_rounded, const Color(0xFF0EA5E9),
+                  _tipCard(
+                    Icons.water_drop_rounded,
+                    const Color(0xFF0EA5E9),
                     isArabic ? 'اشرب الماء بانتظام' : 'Stay Hydrated',
-                    isArabic ? 'احرص على شرب 8 أكواب ماء يومياً.' : 'Drink 8 glasses of water daily.', isDark),
-                  _tipCard(Icons.bedtime_rounded, const Color(0xFF8B5CF6),
+                    isArabic
+                        ? 'احرص على شرب 8 أكواب ماء يومياً.'
+                        : 'Drink 8 glasses of water daily.',
+                    isDark,
+                  ),
+                  _tipCard(
+                    Icons.bedtime_rounded,
+                    const Color(0xFF8B5CF6),
                     isArabic ? 'نوم كافٍ' : 'Get Enough Sleep',
-                    isArabic ? '7-8 ساعات نوم يومياً تساعد الجسم على التعافي.' : '7-8 hours of sleep nightly helps recovery.', isDark),
-                  _tipCard(Icons.directions_walk_rounded, const Color(0xFF10B981),
+                    isArabic
+                        ? '7-8 ساعات نوم يومياً تساعد الجسم على التعافي.'
+                        : '7-8 hours of sleep nightly helps recovery.',
+                    isDark,
+                  ),
+                  _tipCard(
+                    Icons.directions_walk_rounded,
+                    const Color(0xFF10B981),
                     isArabic ? 'النشاط البدني' : 'Stay Active',
-                    isArabic ? '30 دقيقة مشي يومياً تحسّن صحة القلب.' : '30 min of walking daily improves heart health.', isDark),
+                    isArabic
+                        ? '30 دقيقة مشي يومياً تحسّن صحة القلب.'
+                        : '30 min of walking daily improves heart health.',
+                    isDark,
+                  ),
                 ]),
               ),
             ),
@@ -3069,29 +4527,69 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
           color: Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Column(children: [
-          Icon(icon, color: Colors.white, size: 18),
-          const SizedBox(height: 4),
-          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 9, fontWeight: FontWeight.w600),
-            textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ]),
+        child: Column(
+          children: [
+            Icon(icon, color: Colors.white, size: 18),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _sectionTitle(String title, bool isDark) => Row(children: [
-    Container(width: 4, height: 18,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF0EA5E9), Color(0xFF10B981)], begin: Alignment.topCenter, end: Alignment.bottomCenter),
-        borderRadius: BorderRadius.circular(4),
-      )),
-    const SizedBox(width: 10),
-    Text(title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800,
-      color: isDark ? Colors.white : const Color(0xFF1E293B), letterSpacing: -0.3)),
-  ]);
+  Widget _sectionTitle(String title, bool isDark) => Row(
+    children: [
+      Container(
+        width: 4,
+        height: 18,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0EA5E9), Color(0xFF10B981)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Text(
+        title,
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w800,
+          color: isDark ? Colors.white : const Color(0xFF1E293B),
+          letterSpacing: -0.3,
+        ),
+      ),
+    ],
+  );
 
-  Widget _quickAction({required IconData icon, required String label, required Color color, required VoidCallback onTap, required bool isDark}) {
+  Widget _quickAction({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -3100,19 +4598,38 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
           color: isDark ? const Color(0xFF1E293B) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: color.withValues(alpha: 0.15)),
-          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 16, offset: const Offset(0, 6))],
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.1),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
-        child: Column(children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(height: 10),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-            color: isDark ? Colors.grey[200] : const Color(0xFF1E293B), height: 1.3),
-            textAlign: TextAlign.center, maxLines: 2),
-        ]),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.grey[200] : const Color(0xFF1E293B),
+                height: 1.3,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -3122,35 +4639,71 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
     decoration: BoxDecoration(
       color: isDark ? const Color(0xFF1E293B) : Colors.white,
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.15)),
-      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 16, offset: const Offset(0, 6))],
+      border: Border.all(color: const Color(0xFF10B981).withOpacity(0.15)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.04),
+          blurRadius: 16,
+          offset: const Offset(0, 6),
+        ),
+      ],
     ),
-    child: Row(children: [
-      Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.1), shape: BoxShape.circle),
-        child: const Icon(Icons.medication_rounded, color: Color(0xFF10B981), size: 28),
-      ),
-      const SizedBox(width: 16),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(isArabic ? 'لا توجد أدوية فعّالة' : 'No Active Medications',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: isDark ? Colors.white : const Color(0xFF1E293B))),
-        const SizedBox(height: 4),
-        Text(isArabic ? 'ستظهر هنا الأدوية بعد زيارتك للطبيب' : 'Your medicines will appear after your visit',
-          style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600])),
-      ])),
-    ]),
+    child: Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10B981).withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.medication_rounded,
+            color: Color(0xFF10B981),
+            size: 28,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isArabic ? 'لا توجد أدوية فعّالة' : 'No Active Medications',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                isArabic
+                    ? 'ستظهر هنا الأدوية بعد زيارتك للطبيب'
+                    : 'Your medicines will appear after your visit',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
   );
 
   Widget _medCard(ActiveMedication activeMed, bool isDark) {
     final med = activeMed.prescription;
     final times = _getDoseTimes(med);
     return StreamBuilder<DocumentSnapshot>(
-      stream: MedicationTrackingService().getTrackingStream(activeMed.appointmentId),
+      stream: MedicationTrackingService().getTrackingStream(
+        activeMed.appointmentId,
+      ),
       builder: (context, snapshot) {
         List takenDoses = [];
-        final String dateKey = "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}";
-        
+        final String dateKey =
+            "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}";
+
         bool isDismissedForDay = false;
         bool isPermanentlyDismissed = false;
         if (snapshot.hasData && snapshot.data!.exists) {
@@ -3158,249 +4711,432 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
           if (data['medicationTracker'] != null) {
             final tracker = data['medicationTracker'];
             // Check day dismissal
-            if (tracker[dateKey] != null && tracker[dateKey][med.medicineName] != null) {
+            if (tracker[dateKey] != null &&
+                tracker[dateKey][med.medicineName] != null) {
               final medData = tracker[dateKey][med.medicineName];
               takenDoses = medData['takenDoses'] ?? [];
               isDismissedForDay = medData['isDismissed'] ?? false;
             }
             // Check permanent dismissal
-            if (tracker['permanentDismissals'] != null && tracker['permanentDismissals'][med.medicineName] == true) {
+            if (tracker['permanentDismissals'] != null &&
+                tracker['permanentDismissals'][med.medicineName] == true) {
               isPermanentlyDismissed = true;
             }
           }
         }
-        
-        if (isDismissedForDay || isPermanentlyDismissed) return const SizedBox.shrink();
 
-        final bool isAllTaken = times.isNotEmpty && takenDoses.length >= times.length;
+        if (isDismissedForDay || isPermanentlyDismissed) {
+          return const SizedBox.shrink();
+        }
+
+        final bool isAllTaken =
+            times.isNotEmpty && takenDoses.length >= times.length;
 
         return GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MedicationRemindersScreen())),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const MedicationRemindersScreen(),
+            ),
+          ),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isAllTaken 
-                  ? (isDark ? const Color(0xFF10B981).withValues(alpha: 0.1) : const Color(0xFF10B981).withValues(alpha: 0.05))
+              color: isAllTaken
+                  ? (isDark
+                        ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                        : const Color(0xFF10B981).withValues(alpha: 0.05))
                   : (isDark ? const Color(0xFF1E293B) : Colors.white),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isAllTaken 
+                color: isAllTaken
                     ? const Color(0xFF10B981).withValues(alpha: 0.5)
                     : const Color(0xFF10B981).withValues(alpha: 0.12),
                 width: isAllTaken ? 1.5 : 1.0,
               ),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 16, offset: const Offset(0, 6))],
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isAllTaken ? const Color(0xFF10B981) : const Color(0xFF10B981).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12)
-                  ),
-                  child: Icon(
-                    isAllTaken ? Icons.check_circle_rounded : Icons.medication_rounded, 
-                    color: isAllTaken ? Colors.white : const Color(0xFF10B981), 
-                    size: 22
-                  ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
                 ),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(med.medicineName.isEmpty ? (isArabic ? 'دواء' : 'Medicine') : med.medicineName, 
-                          maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 16, 
-                            fontWeight: FontWeight.w800,
-                            color: isAllTaken ? const Color(0xFF10B981) : (isDark ? Colors.white : const Color(0xFF1E293B)),
-                            decoration: isAllTaken ? TextDecoration.lineThrough : null,
-                          )),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isAllTaken
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFF10B981).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      if (isAllTaken)
-                        GestureDetector(
-                          onTap: () {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                title: Text(isArabic ? 'إزالة الدواء؟' : 'Remove Medicine?'),
-                                content: Text(isArabic 
-                                  ? 'تم اكتمال جميع جرعات اليوم. هل تريد إزالة هذا الدواء من القائمة النشطة؟' 
-                                  : 'All doses for today completed. Do you want to remove this medicine from the active list?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+                      child: Icon(
+                        isAllTaken
+                            ? Icons.check_circle_rounded
+                            : Icons.medication_rounded,
+                        color: isAllTaken
+                            ? Colors.white
+                            : const Color(0xFF10B981),
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  med.medicineName.isEmpty
+                                      ? (isArabic ? 'دواء' : 'Medicine')
+                                      : med.medicineName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: isAllTaken
+                                        ? const Color(0xFF10B981)
+                                        : (isDark
+                                              ? Colors.white
+                                              : const Color(0xFF1E293B)),
+                                    decoration: isAllTaken
+                                        ? TextDecoration.lineThrough
+                                        : null,
                                   ),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.pop(ctx);
-                                      MedicationTrackingService().permanentlyDismissMedicine(
-                                        appointmentId: activeMed.appointmentId,
-                                        medicineName: med.medicineName,
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF10B981),
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    ),
-                                    child: Text(isArabic ? 'نعم، إزالة' : 'Yes, Remove'),
-                                  ),
-                                ],
+                                ),
                               ),
+                              if (isAllTaken)
+                                GestureDetector(
+                                  onTap: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        title: Text(
+                                          isArabic
+                                              ? 'إزالة الدواء؟'
+                                              : 'Remove Medicine?',
+                                        ),
+                                        content: Text(
+                                          isArabic
+                                              ? 'تم اكتمال جميع جرعات اليوم. هل تريد إزالة هذا الدواء من القائمة النشطة؟'
+                                              : 'All doses for today completed. Do you want to remove this medicine from the active list?',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(ctx),
+                                            child: Text(
+                                              isArabic ? 'إلغاء' : 'Cancel',
+                                            ),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              Navigator.pop(ctx);
+                                              MedicationTrackingService()
+                                                  .permanentlyDismissMedicine(
+                                                    appointmentId:
+                                                        activeMed.appointmentId,
+                                                    medicineName:
+                                                        med.medicineName,
+                                                  );
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(
+                                                0xFF10B981,
+                                              ),
+                                              foregroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              isArabic
+                                                  ? 'نعم، إزالة'
+                                                  : 'Yes, Remove',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF10B981),
+                                      borderRadius: BorderRadius.circular(10),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(
+                                            0xFF10B981,
+                                          ).withValues(alpha: 0.3),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          isArabic ? 'إخفاء' : 'Done',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w900,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(
+                                          Icons.visibility_off_rounded,
+                                          size: 12,
+                                          color: Colors.white,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              _chip(med.dosage, const Color(0xFF0EA5E9)),
+                              const SizedBox(width: 6),
+                              _chip(med.duration, const Color(0xFFF59E0B)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Dose Tracker
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.checklist_rounded,
+                          size: 14,
+                          color: isDark ? Colors.grey[500] : Colors.grey[600],
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isArabic ? 'جرعات اليوم:' : 'Today\'s Doses:',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: times.map((time) {
+                        final bool isTaken = takenDoses.contains(time);
+                        return InkWell(
+                          onTap: () {
+                            MedicationTrackingService().toggleDoseTaken(
+                              appointmentId: activeMed.appointmentId,
+                              medicineName: med.medicineName,
+                              doseTime: time,
+                              date: DateTime.now(),
+                              taken: !isTaken,
+                              totalDoses: times.length,
                             );
                           },
+                          borderRadius: BorderRadius.circular(10),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981),
+                              color: isTaken
+                                  ? const Color(
+                                      0xFF10B981,
+                                    ).withValues(alpha: 0.15)
+                                  : (isDark
+                                        ? Colors.white.withValues(alpha: 0.05)
+                                        : Colors.grey[100]),
                               borderRadius: BorderRadius.circular(10),
-                              boxShadow: [BoxShadow(color: const Color(0xFF10B981).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2))],
+                              border: Border.all(
+                                color: isTaken
+                                    ? const Color(0xFF10B981)
+                                    : Colors.transparent,
+                                width: 1,
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(isArabic ? 'إخفاء' : 'Done', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white)),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.visibility_off_rounded, size: 12, color: Colors.white),
+                                if (isTaken)
+                                  const Padding(
+                                    padding: EdgeInsets.only(right: 4),
+                                    child: Icon(
+                                      Icons.check_circle_rounded,
+                                      size: 14,
+                                      color: Color(0xFF10B981),
+                                    ),
+                                  ),
+                                Text(
+                                  time,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: isTaken
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
+                                    color: isTaken
+                                        ? const Color(0xFF10B981)
+                                        : (isDark
+                                              ? Colors.grey[300]
+                                              : const Color(0xFF475569)),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+                if (med.instructions?.isNotEmpty ?? false) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.orange.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline_rounded,
+                          size: 14,
+                          color: Colors.orange,
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Row(children: [
-                    _chip(med.dosage, const Color(0xFF0EA5E9)),
-                    const SizedBox(width: 6),
-                    _chip(med.duration, const Color(0xFFF59E0B)),
-                  ]),
-                ])),
-              ]),
-              const SizedBox(height: 16),
-              // Dose Tracker
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Icon(Icons.checklist_rounded, size: 14, color: isDark ? Colors.grey[500] : Colors.grey[600]),
-                    const SizedBox(width: 6),
-                    Text(isArabic ? 'جرعات اليوم:' : 'Today\'s Doses:',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: isDark ? Colors.grey[400] : Colors.grey[600])),
-                  ]),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: times.map((time) {
-                      final bool isTaken = takenDoses.contains(time);
-                      return InkWell(
-                        onTap: () {
-                          MedicationTrackingService().toggleDoseTaken(
-                            appointmentId: activeMed.appointmentId,
-                            medicineName: med.medicineName,
-                            doseTime: time,
-                            date: DateTime.now(),
-                            taken: !isTaken,
-                            totalDoses: times.length,
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isTaken 
-                                ? const Color(0xFF10B981).withValues(alpha: 0.15) 
-                                : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[100]),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isTaken ? const Color(0xFF10B981) : Colors.transparent,
-                              width: 1,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            med.instructions!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : const Color(0xFF475569),
+                              fontStyle: FontStyle.italic,
                             ),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (isTaken)
-                                const Padding(
-                                  padding: EdgeInsets.only(right: 4),
-                                  child: Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF10B981)),
-                                ),
-                              Text(time,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: isTaken ? FontWeight.w800 : FontWeight.w600,
-                                  color: isTaken 
-                                      ? const Color(0xFF10B981) 
-                                      : (isDark ? Colors.grey[300] : const Color(0xFF475569)),
-                                )),
-                            ],
-                          ),
                         ),
-                      );
-                    }).toList(),
+                      ],
+                    ),
                   ),
                 ],
-              ),
-              if (med.instructions?.isNotEmpty ?? false) ...[
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.orange.withValues(alpha: 0.15)),
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.info_outline_rounded, size: 14, color: Colors.orange),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(med.instructions!,
-                      style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : const Color(0xFF475569), fontStyle: FontStyle.italic))),
-                  ]),
-                ),
               ],
-            ]),
+            ),
           ),
         );
-      }
+      },
     );
   }
 
   Widget _chip(String label, Color color) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-    child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+    ),
   );
 
-  Widget _tipCard(IconData icon, Color color, String title, String body, bool isDark) => Container(
+  Widget _tipCard(
+    IconData icon,
+    Color color,
+    String title,
+    String body,
+    bool isDark,
+  ) => Container(
     margin: const EdgeInsets.only(bottom: 12),
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: isDark ? const Color(0xFF1E293B) : Colors.white,
       borderRadius: BorderRadius.circular(18),
       border: Border.all(color: color.withValues(alpha: 0.12)),
-      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ],
     ),
-    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
-        child: Icon(icon, color: color, size: 22),
-      ),
-      const SizedBox(width: 14),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800,
-          color: isDark ? Colors.white : const Color(0xFF1E293B))),
-        const SizedBox(height: 4),
-        Text(body, style: TextStyle(fontSize: 13, height: 1.4,
-          color: isDark ? Colors.grey[400] : const Color(0xFF64748B))),
-      ])),
-    ]),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: color, size: 22),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                body,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
   );
 }

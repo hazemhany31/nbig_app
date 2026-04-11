@@ -1,6 +1,28 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_notification_service.dart';
+
+// === Riverpod Providers ===
+// مزود خدمة المصادقة للوصول السريع
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService();
+});
+
+// مزود حالة المستحدم الحالية (مسجل دخول أم لا) للاستماع لها في الشاشات
+final authStateProvider = StreamProvider<User?>((ref) {
+  return ref.watch(authServiceProvider).authStateChanges;
+});
+
+// مزود بيانات المستخدم من Firestore
+final userDataProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
+  final authState = ref.watch(authStateProvider);
+  final user = authState.value;
+  if (user == null) return null;
+  
+  return await ref.read(authServiceProvider).getUserData();
+});
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -41,10 +63,17 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    return await _auth.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
+    try {
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      debugPrint('AuthService: Sign-in successful for $email');
+      return credential;
+    } catch (e) {
+      debugPrint('AuthService: Sign-in failed for $email: $e');
+      rethrow;
+    }
   }
 
   // Save/Update User Data in Firestore
@@ -87,8 +116,10 @@ class AuthService {
       final doc = await ref
           .get(const GetOptions(source: Source.server))
           .timeout(const Duration(seconds: 5));
+      debugPrint('AuthService: User data fetched from server');
       return doc.data();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('AuthService: Error fetching user data from server: $e');
       return null;
     }
   }

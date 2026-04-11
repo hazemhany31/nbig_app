@@ -17,43 +17,69 @@ class AppointmentService {
     required String doctorUserId, // Added doctorUserId
   }) async {
     try {
-      // 1. Calculate the exact DateTime
-      DateTime appointmentDateTime = _parseTimeToDateTime(date, time);
+      // 0. Safety Check: Verify no existing appointment for this day with this specific doctor
+      final hasExisting = await hasAppointmentOnDate(patientId, doctorId, date);
+      if (hasExisting) {
+        throw Exception('user_already_has_appointment_with_this_doctor');
+      }
 
-      // 2. Add to Firestore — store BOTH doctorId (doc ID) and doctorUserId (Auth UID)
-      //    so that doctor_app can always find this appointment regardless of which ID it uses
+      // 1. Calculate dates and deterministic Document ID
+      DateTime appointmentDateTime = _parseTimeToDateTime(date, time);
+      final String dateStr = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+      
+      // Sanitized time for Document ID (e.g. 10:00_AM)
+      final String safeTime = time.replaceAll(RegExp(r'\s+'), '_');
+      final String appointmentId = '${doctorId}_${dateStr}_$safeTime';
+      
+      final docRef = _firestore.collection('appointments').doc(appointmentId);
+
+      // 2. Transaction to prevent Race Conditions (Double Bookings) with 1-Hour Expiration
+      // Calculate Expiration time
+      DateTime expiresAtDate = DateTime.now().add(const Duration(hours: 1));
+      
       final appointmentData = {
         'doctorId': doctorId,
-        'doctorUserId': doctorUserId.isNotEmpty ? doctorUserId : doctorId, // ← KEY FIX
+        'doctorUserId': doctorUserId.isNotEmpty ? doctorUserId : doctorId,
         'doctorName': doctorName,
         'specialty': specialty,
         'patientId': patientId,
         'patientName': patientName,
-        'date': "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}",
+        'date': dateStr,
         'time': time,
-        'dateTime': Timestamp.fromDate(
-          appointmentDateTime,
-        ),
+        'dateTime': Timestamp.fromDate(appointmentDateTime),
         'duration': 20,
         'type': 'new',
-        'status': 'pending',
+        'status': 'pending', // Pending to indicate unconfirmed
         'createdAt': FieldValue.serverTimestamp(),
+        'expiresAt': Timestamp.fromDate(expiresAtDate), // Automatically cancel after 1 hour if not confirmed
       };
 
-// debugPrint('📝 Adding appointment doc: $appointmentData');
-      final docRef = await _firestore
-          .collection('appointments')
-          .add(appointmentData)
-          .timeout(const Duration(seconds: 15));
+      await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(docRef);
 
-      // 3. Trigger notification for the doctor (Use Auth UID as recipientId)
+        if (snapshot.exists) {
+          final data = snapshot.data();
+          // If the slot is cancelled, we allow re-booking
+          if (data != null && data['status'] == 'cancelled') {
+            transaction.update(docRef, appointmentData);
+          } else {
+            // Slot is taken! Throw an exception to stop transaction
+            throw Exception('عذراً، هذا الموعد تم حجزه للتو. يرجى اختيار موعد آخر.');
+          }
+        } else {
+          // Normal booking creation
+          transaction.set(docRef, appointmentData);
+        }
+      }).timeout(const Duration(seconds: 15));
+
+      // 3. Trigger notification for the doctor
       await _triggerDoctorNotification(
         recipientId: doctorUserId.isNotEmpty ? doctorUserId : doctorId,
         patientName: patientName,
-        appointmentId: docRef.id,
+        appointmentId: appointmentId,
       );
 
-      return docRef.id;
+      return appointmentId;
     } catch (e) {
 // debugPrint('❌ Error in createAppointment: $e');
       rethrow;
@@ -126,26 +152,31 @@ class AppointmentService {
     }
   }
 
-  /// Check if patient already has an appointment on a given date
-  Future<bool> hasAppointmentOnDate(String patientId, DateTime date) async {
-    final startOfDay = DateTime(date.year, date.month, date.day);
-    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+  /// Check if patient already has an appointment with a specific doctor on a given date
+  Future<bool> hasAppointmentOnDate(String patientId, String doctorId, DateTime date) async {
+    final String dateStr = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
 
     final snapshot = await _firestore
         .collection('appointments')
         .where('patientId', isEqualTo: patientId)
-        .where(
-          'dateTime',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
-        )
-        .where('dateTime', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
+        .where('doctorId', isEqualTo: doctorId)
+        .where('date', isEqualTo: dateStr)
         .get()
         .timeout(const Duration(seconds: 10));
 
-    // Exclude cancelled appointments
+    // ONLY block if it's NOT cancelled, OR if it was cancelled by the doctor
     final activeAppointments = snapshot.docs.where((doc) {
       final data = doc.data();
-      return data['status'] != 'cancelled';
+      final status = data['status'];
+      final cancelledBy = data['cancelledBy'];
+      
+      if (status == 'cancelled') {
+        // Only block if explicitly cancelled by doctor. 
+        // If it's cancelled by patient or unknown (old data), allow re-booking.
+        return cancelledBy == 'doctor';
+      }
+      // Block for all other active statuses (pending, confirmed, accepted, etc.)
+      return true;
     });
 
     return activeAppointments.isNotEmpty;
@@ -201,14 +232,52 @@ class AppointmentService {
   /// Cancel an appointment (patient side)
   Future<void> cancelAppointment(String appointmentId) async {
     try {
+      // 1. Handle notifications cleanup
+      final notifs = await _firestore
+          .collection('notifications')
+          .where('appointmentId', isEqualTo: appointmentId)
+          .get();
+      
+      for (var doc in notifs.docs) {
+        await doc.reference.update({
+          'status': 'read', 
+          'type': 'cancelled_appointment',
+          'body': 'تم إلغاء هذا الموعد بواسطة المريض',
+        });
+      }
+
+      // 2. Update appointment status
       await _firestore.collection('appointments').doc(appointmentId).update({
         'status': 'cancelled',
+        'cancelledBy': 'patient',
         'cancelReason': 'ألغيت من المريض',
         'cancelledAt': FieldValue.serverTimestamp(),
       });
 // debugPrint('✅ Appointment cancelled');
     } catch (e) {
 // debugPrint('❌ Error cancelling appointment: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete an appointment completely (patient side)
+  Future<void> deleteAppointment(String appointmentId) async {
+    try {
+      // 1. Delete associated notifications
+      final notifs = await _firestore
+          .collection('notifications')
+          .where('appointmentId', isEqualTo: appointmentId)
+          .get();
+      
+      for (var doc in notifs.docs) {
+        await doc.reference.delete();
+      }
+
+      // 2. Delete the appointment itself
+      await _firestore.collection('appointments').doc(appointmentId).delete();
+// debugPrint('✅ Appointment deleted from Firestore');
+    } catch (e) {
+// debugPrint('❌ Error deleting appointment: $e');
       rethrow;
     }
   }
@@ -281,6 +350,48 @@ class AppointmentService {
       }
     } catch (e) {
       debugPrint('❌ Error updating prescription status: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all appointments for a doctor
+  Stream<List<Appointment>> getDoctorAppointments(String doctorUserId) {
+    return _firestore
+        .collection('appointments')
+        .where('doctorUserId', isEqualTo: doctorUserId)
+        .orderBy('dateTime', descending: false)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map((doc) => Appointment.fromFirestore(doc))
+              .toList();
+        });
+  }
+
+  /// Accept an appointment (doctor side)
+  Future<void> acceptAppointment(String appointmentId) async {
+    try {
+      await _firestore.collection('appointments').doc(appointmentId).update({
+        'status': 'accepted',
+        'acceptedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('❌ Error accepting appointment: $e');
+      rethrow;
+    }
+  }
+
+  /// Reject/Cancel an appointment (doctor side)
+  Future<void> rejectAppointment(String appointmentId, {String? reason}) async {
+    try {
+      await _firestore.collection('appointments').doc(appointmentId).update({
+        'status': 'cancelled',
+        'cancelledBy': 'doctor',
+        'cancelReason': reason ?? 'Cancelled by doctor',
+        'cancelledAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('❌ Error rejecting appointment: $e');
       rethrow;
     }
   }

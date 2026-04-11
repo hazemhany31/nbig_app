@@ -13,7 +13,14 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
-  Future<void> init() async {
+  Future<void>? _ready;
+
+  Future<void> init() {
+    _ready ??= _initImpl();
+    return _ready!;
+  }
+
+  Future<void> _initImpl() async {
     tz.initializeTimeZones();
     try {
       final timeZoneInfo = await FlutterTimezone.getLocalTimezone();
@@ -64,6 +71,7 @@ class NotificationService {
   /// إشعار فوري
   Future<void> showNotification(String title, String body) async {
     if (kIsWeb) return;
+    await init();
     await flutterLocalNotificationsPlugin.show(
       id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       title: title,

@@ -112,6 +112,14 @@ class _EmergencyAlertScreenState extends State<EmergencyAlertScreen>
         });
         _startCountdown();
         if (_alertId != null) _watchAlert(_alertId!);
+        // نفس خيط المحادثة الذي يفتحه الطبيب في تطبيق الدكتور (بعد ربط doctorId / userId)
+        _ensureEmergencyChatLinked(
+          doctorId: result['doctorId'] ?? '',
+          doctorUserId: result['doctorUserId'] ?? '',
+          doctorName: result['doctorName'] ?? '',
+          patientId: user.uid,
+          patientName: user.displayName ?? (isArabic ? 'مريض' : 'Patient'),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -138,6 +146,29 @@ class _EmergencyAlertScreenState extends State<EmergencyAlertScreen>
       }
       setState(() => _secondsRemaining--);
     });
+  }
+
+  /// ينشئ أو يربط محادثة Firestore فور إرسال الطوارئ حتى لا يفتح المريض محادثة جديدة
+  /// بينما رسائل الطبيب على مستند آخر.
+  Future<void> _ensureEmergencyChatLinked({
+    required String doctorId,
+    required String doctorUserId,
+    required String doctorName,
+    required String patientId,
+    required String patientName,
+  }) async {
+    if (doctorId.isEmpty && doctorUserId.isEmpty) return;
+    try {
+      await _chatService.createOrGetChat(
+        doctorId: doctorId,
+        doctorUserId: doctorUserId,
+        doctorName: doctorName.isNotEmpty ? doctorName : (isArabic ? 'طبيب' : 'Doctor'),
+        patientId: patientId,
+        patientName: patientName,
+      );
+    } catch (_) {
+      // فتح المحادثة لاحقاً يعيد المحاولة عبر نفس المنطق
+    }
   }
 
   void _watchAlert(String alertId) {

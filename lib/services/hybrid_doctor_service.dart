@@ -34,37 +34,56 @@ class HybridDoctorService {
 
   /// جلب جميع الدكاترة
   Future<List<Doctor>> getDoctors({String? category}) async {
+    List<Doctor> doctors;
     if (_useFirestore) {
-      return await _firestoreService.getAllDoctors(category: category);
+      doctors = await _firestoreService.getAllDoctors(category: category);
     } else {
-      return await _sqliteDb.getDoctors(category: category);
+      doctors = await _sqliteDb.getDoctors(category: category);
     }
+
+    // الدمج مع المفضلات المحلية دائماً لضمان المزامنة
+    final favIds = await _sqliteDb.getFavoriteIds();
+    for (var doc in doctors) {
+      doc.isFavorite = favIds.contains(doc.id);
+    }
+    return doctors;
   }
 
   /// جلب دكتور معين
-  /// في حالة SQLite، يستخدم ID المحلي
-  /// في حالة Firestore، يستخدم Firebase UID
   Future<Doctor?> getDoctorById(String doctorId) async {
+    Doctor? doc;
     if (_useFirestore) {
-      return await _firestoreService.getDoctorById(doctorId);
+      doc = await _firestoreService.getDoctorById(doctorId);
     } else {
-      // جلب من SQLite (يحتاج implementation)
       final doctors = await _sqliteDb.getDoctors();
       try {
-        return doctors.firstWhere((d) => d.id == doctorId);
+        doc = doctors.firstWhere((d) => d.id == doctorId);
       } catch (e) {
-        return null;
+        doc = null;
       }
     }
+
+    if (doc != null) {
+      final favIds = await _sqliteDb.getFavoriteIds();
+      doc.isFavorite = favIds.contains(doc.id);
+    }
+    return doc;
   }
 
   /// البحث عن دكاترة
   Future<List<Doctor>> searchDoctors(String keyword) async {
+    List<Doctor> doctors;
     if (_useFirestore) {
-      return await _firestoreService.searchDoctors(keyword);
+      doctors = await _firestoreService.searchDoctors(keyword);
     } else {
-      return await _sqliteDb.searchDoctors(keyword);
+      doctors = await _sqliteDb.searchDoctors(keyword);
     }
+
+    final favIds = await _sqliteDb.getFavoriteIds();
+    for (var doc in doctors) {
+      doc.isFavorite = favIds.contains(doc.id);
+    }
+    return doctors;
   }
 
   /// جلب التخصصات المتاحة

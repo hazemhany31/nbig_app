@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/auth_service.dart';
 import 'auth_check.dart';
+import 'phone_verification_screen.dart';
 
 
 // === SIGN UP SCREEN PREMIUM REDESIGN ===
@@ -71,38 +72,42 @@ class _SignUpScreenState extends State<SignUpScreen>
     if (nameController.text.trim().isEmpty ||
         emailController.text.trim().isEmpty ||
         passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            Directionality.of(context) == TextDirection.rtl
-                ? 'يرجى ملء جميع الحقول المطلوبة'
-                : 'Please fill all required fields',
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              Directionality.of(context) == TextDirection.rtl
+                  ? 'يرجى ملء جميع الحقول المطلوبة'
+                  : 'Please fill all required fields',
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
+        );
+      }
       return;
     }
 
     if (passwordController.text.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            Directionality.of(context) == TextDirection.rtl
-                ? 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل'
-                : 'Password must be at least 6 characters',
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              Directionality.of(context) == TextDirection.rtl
+                  ? 'يجب أن تتكون كلمة المرور من 6 أحرف على الأقل'
+                  : 'Password must be at least 6 characters',
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
+        );
+      }
       return;
     }
 
@@ -116,22 +121,49 @@ class _SignUpScreenState extends State<SignUpScreen>
         phone: phoneController.text.trim(),
       );
 
+      debugPrint('AuthService: Sign-up successful for ${emailController.text}');
+
       if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => AuthCheck(
-              toggleTheme: widget.toggleTheme,
-              isDark: widget.isDark,
+        final phone = phoneController.text.trim();
+
+        // إذا أدخل المستخدم رقم هاتف → اذهب لشاشة التحقق
+        if (phone.isNotEmpty) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  PhoneVerificationScreen(
+                    toggleTheme: widget.toggleTheme,
+                    isDark: widget.isDark,
+                    phoneNumber: phone,
+                    name: nameController.text.trim(),
+                    email: emailController.text.trim(),
+                  ),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) =>
+                      FadeTransition(opacity: animation, child: child),
+              transitionDuration: const Duration(milliseconds: 600),
             ),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-                  return FadeTransition(opacity: animation, child: child);
-                },
-            transitionDuration: const Duration(milliseconds: 800),
-          ),
-          (route) => false,
-        );
+            (route) => false,
+          );
+        } else {
+          // لا يوجد رقم هاتف → انتقل مباشرة للتطبيق
+          Navigator.pushAndRemoveUntil(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => AuthCheck(
+                toggleTheme: widget.toggleTheme,
+                isDark: widget.isDark,
+              ),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
+              transitionDuration: const Duration(milliseconds: 800),
+            ),
+            (route) => false,
+          );
+        }
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
@@ -151,31 +183,36 @@ class _SignUpScreenState extends State<SignUpScreen>
           errorMessage = Directionality.of(context) == TextDirection.rtl
               ? 'كلمة المرور ضعيفة جدًا.'
               : 'The password is too weak.';
-        } else {
-          errorMessage = e.message ?? errorMessage;
+        debugPrint('AuthService: Sign-up failed (AuthException) for ${emailController.text}: ${e.code} - ${e.message}');
+        errorMessage = e.message ?? errorMessage;
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
     } catch (e) {
+      debugPrint('AuthService: Sign-up error (General) for ${emailController.text}: $e');
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }

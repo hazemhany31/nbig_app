@@ -174,6 +174,16 @@ class BlogListScreen extends StatelessWidget {
                 height: 180,
                 width: double.infinity,
                 fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  height: 180,
+                  color: Colors.grey[100],
+                  child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  height: 180,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.image_not_supported_rounded, color: Colors.grey),
+                ),
               ),
             ),
             Padding(
@@ -242,6 +252,10 @@ class BlogDetailScreen extends StatelessWidget {
               background: CachedNetworkImage(
                 imageUrl: post.image,
                 fit: BoxFit.cover,
+                errorWidget: (context, url, error) => Container(
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.image_not_supported_rounded, color: Colors.grey),
+                ),
               ),
             ),
           ),

@@ -9,11 +9,17 @@ import '../../models/message.dart';
 import '../../services/chat_service.dart';
 import 'package:intl/intl.dart';
 
-/// شاشة المحادثة مع الدكتور
+/// شاشة المحادثة — مريض مع طبيب، أو [isDoctorView] للطبيب مع المريض (نفس مستند Firestore)
 class ChatScreen extends StatefulWidget {
   final Chat chat;
+  /// `true` عند فتح المحادثة من واجهة الطبيب
+  final bool isDoctorView;
 
-  const ChatScreen({super.key, required this.chat});
+  const ChatScreen({
+    super.key,
+    required this.chat,
+    this.isDoctorView = false,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -27,25 +33,75 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isSendingImage = false;
   late Stream<List<Message>> _messagesStream;
 
+  // Anti-spam variables
+  DateTime? _lastMessageTime;
+  int _rapidMessageCount = 0;
+
   @override
   void initState() {
     super.initState();
-    _chatService.markMessagesAsRead(widget.chat.id, 'patient');
+    _chatService.markMessagesAsRead(
+      widget.chat.id,
+      widget.isDoctorView ? 'doctor' : 'patient',
+    );
     _messagesStream = _chatService.getChatMessages(widget.chat.id);
   }
+
+  String get _displayNameMe {
+    if (widget.isDoctorView) {
+      return FirebaseAuth.instance.currentUser?.displayName ??
+          widget.chat.doctorName;
+    }
+    return widget.chat.patientName;
+  }
+
+  String get _peerDisplayName =>
+      widget.isDoctorView ? widget.chat.patientName : widget.chat.doctorName;
 
   void _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
+
+    // --- Anti-Spam Check ---
+    final now = DateTime.now();
+    if (_lastMessageTime != null) {
+      if (now.difference(_lastMessageTime!).inSeconds < 1) {
+        _rapidMessageCount++;
+        if (_rapidMessageCount >= 3) {
+          if (mounted) {
+            final isArabic = Directionality.of(context) == ui.TextDirection.rtl;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isArabic 
+                  ? 'الرجاء الانتظار قليلاً لتجنب إرسال رسائل متكررة' 
+                  : 'Please wait a moment before sending more messages'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+          return;
+        }
+      } else {
+        _rapidMessageCount = 0;
+      }
+    }
+    _lastMessageTime = now;
+    // -----------------------
+
     _messageController.clear(); // Clear immediately for feel
 
     try {
       await _chatService.sendMessage(
         chatId: widget.chat.id,
         senderId: _currentUserId,
-        senderName: widget.chat.patientName,
-        senderType: 'patient',
+        senderName: _displayNameMe,
+        senderType: widget.isDoctorView ? 'doctor' : 'patient',
         text: text,
+        recipientId: widget.isDoctorView
+            ? widget.chat.patientId
+            : (widget.chat.doctorUserId.isNotEmpty
+                ? widget.chat.doctorUserId
+                : null),
       );
       _scrollToBottom();
     } catch (e) {
@@ -77,11 +133,16 @@ class _ChatScreenState extends State<ChatScreen> {
       await _chatService.sendMessage(
         chatId: widget.chat.id,
         senderId: _currentUserId,
-        senderName: widget.chat.patientName,
-        senderType: 'patient',
+        senderName: _displayNameMe,
+        senderType: widget.isDoctorView ? 'doctor' : 'patient',
         text: '📷 صورة',
         messageType: 'image',
         imageBase64: base64String,
+        recipientId: widget.isDoctorView
+            ? widget.chat.patientId
+            : (widget.chat.doctorUserId.isNotEmpty
+                ? widget.chat.doctorUserId
+                : null),
       );
 
       _scrollToBottom();
@@ -116,11 +177,16 @@ class _ChatScreenState extends State<ChatScreen> {
       await _chatService.sendMessage(
         chatId: widget.chat.id,
         senderId: _currentUserId,
-        senderName: widget.chat.patientName,
-        senderType: 'patient',
+        senderName: _displayNameMe,
+        senderType: widget.isDoctorView ? 'doctor' : 'patient',
         text: '📷 صورة',
         messageType: 'image',
         imageBase64: base64String,
+        recipientId: widget.isDoctorView
+            ? widget.chat.patientId
+            : (widget.chat.doctorUserId.isNotEmpty
+                ? widget.chat.doctorUserId
+                : null),
       );
 
       _scrollToBottom();
@@ -313,9 +379,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     child: Center(
                       child: Text(
-                        widget.chat.doctorName.isNotEmpty
-                            ? widget.chat.doctorName[0].toUpperCase()
-                            : 'د',
+                        _peerDisplayName.isNotEmpty
+                            ? _peerDisplayName[0].toUpperCase()
+                            : (widget.isDoctorView ? 'م' : 'د'),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -326,7 +392,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    widget.chat.doctorName,
+                    _peerDisplayName,
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
@@ -429,7 +495,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index];
-                    final isPatient = message.senderType == 'patient';
+                    // Prefer sender UID so doctor-app messages still align if senderType is wrong
+                    final isPatient = message.senderId == _currentUserId;
                     // Since it's reversed, the "previous" chronological message is at index + 1
                     final showDate =
                         index == messages.length - 1 ||

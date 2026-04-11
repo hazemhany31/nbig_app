@@ -1,108 +1,124 @@
 import 'package:flutter/material.dart';
-
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../services/auth_service.dart';
 import '../main_layout.dart';
-
+import '../doctor/doctor_home_shell.dart';
 import 'onboarding_screen.dart';
 
 // === AUTH CHECK ===
-class AuthCheck extends StatefulWidget {
+class AuthCheck extends ConsumerWidget {
   final VoidCallback toggleTheme;
   final bool isDark;
+  
   const AuthCheck({super.key, required this.toggleTheme, required this.isDark});
-  @override
-  State<AuthCheck> createState() => _AuthCheckState();
-}
-
-class _AuthCheckState extends State<AuthCheck> {
-  final AuthService _authService = AuthService();
 
   @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: _authService.authStateChanges,
-      builder: (context, authSnapshot) {
-        if (authSnapshot.connectionState == ConnectionState.waiting) {
-          // عرض شاشة التحميل أثناء انتظار حالة تسجيل الدخول
-          return const Scaffold(
-            backgroundColor: Colors.blue,
-            body: Center(child: CircularProgressIndicator(color: Colors.white)),
+  Widget build(BuildContext context, WidgetRef ref) {
+    // مراقبة حالة المصادقة
+    final authState = ref.watch(authStateProvider);
+
+    return authState.when(
+      data: (user) {
+        if (user == null) {
+          // المستخدم غير مسجل دخول
+          return OnboardingScreen(
+            toggleTheme: toggleTheme,
+            isDark: isDark,
           );
         }
 
-        if (authSnapshot.hasData && authSnapshot.data != null) {
-          final user = authSnapshot.data!;
+        // المستخدم مسجل، جلب بياناته
+        final userAsyncData = ref.watch(userDataProvider);
 
-          // استخدام FutureBuilder مع مهلة زمنية (Timeout)
-          return FutureBuilder<Map<String, dynamic>?>(
-            future: _authService.getUserData().timeout(
-              const Duration(seconds: 10),
-              onTimeout: () {
-                debugPrint("AuthCheck: User data fetch timed out. Proceeding.");
-                return null;
-              },
-            ),
-            builder: (context, userSnapshot) {
-              // لو لسه بيحمل نشوف هل طول زيادة عن اللزوم؟
-              // ولكن التايم أوت فوق هيتصرف.
-              if (userSnapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(
-                  backgroundColor: Colors.blue,
-                  body: Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  ),
-                );
-              }
+        return userAsyncData.when(
+          data: (userData) {
+            final userName = userData?['name'] ?? user.displayName ?? 'User';
+            final role = (userData?['role'] ?? 'patient').toString().toLowerCase();
 
-              // في حالة حدوث خطأ، نكمل عادي عشان المستخدم ميعلقش
-              if (userSnapshot.hasError) {
-                debugPrint(
-                  "AuthCheck: Error fetching user data: ${userSnapshot.error}",
-                );
-                // نكمل كأن مفيش داتا إضافية
-              }
-
-              final userData = userSnapshot.data;
-
-              // لو البيانات مش موجودة، نحفظها في Firestore
-              if (userData == null || userData.isEmpty) {
-                final phoneNumber = user.phoneNumber ?? '';
-                // نحاول نحفظ لو المعانا رقم تليفون أو إيميل
-                if (phoneNumber.isNotEmpty ||
-                    (user.email != null && user.email!.isNotEmpty)) {
-                  _authService.saveUserData(
-                    phoneNumber: phoneNumber,
-                    name: user.displayName ?? 'User',
-                    email: user.email ?? '',
-                    role: 'patient',
-                  );
-                }
-              }
-
-              final userName =
-                  userData?['name'] ??
-                  user.displayName ??
-                  user.phoneNumber ??
-                  user.email?.split('@')[0] ??
-                  'User';
-
-              // التوجيه دائماً للواجهة الرئيسية
-              return MainLayout(
+            if (role == 'doctor') {
+              return DoctorHomeShell(
                 userName: userName,
-                toggleTheme: widget.toggleTheme,
-                isDark: widget.isDark,
+                toggleTheme: toggleTheme,
+                isDark: isDark,
               );
-            },
-          );
-        }
+            }
 
-        // المستخدم غير مسجل دخول
-        return OnboardingScreen(
-          toggleTheme: widget.toggleTheme,
-          isDark: widget.isDark,
+            return MainLayout(
+              userName: userName,
+              toggleTheme: toggleTheme,
+              isDark: isDark,
+            );
+          },
+          loading: () => _buildShimmerLoading(context),
+          error: (err, stack) => _buildErrorScreen(context, err.toString()),
         );
       },
+      loading: () => _buildShimmerLoading(context),
+      error: (err, stack) => _buildErrorScreen(context, err.toString()),
+    );
+  }
+
+  Widget _buildShimmerLoading(BuildContext context) {
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0B1120) : const Color(0xFFF0F4F8),
+      body: Center(
+        child: Shimmer.fromColors(
+          baseColor: isDark ? const Color(0xFF1E293B) : Colors.grey[300]!,
+          highlightColor: isDark ? const Color(0xFF334155) : Colors.grey[100]!,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                width: 200,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: 150,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorScreen(BuildContext context, String error) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 60),
+            const SizedBox(height: 16),
+            const Text(
+              'حدث خطأ ما، يرجى المحاولة لاحقاً',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(error, style: const TextStyle(color: Colors.grey)),
+          ],
+        ),
+      ),
     );
   }
 }

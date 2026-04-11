@@ -56,3 +56,15 @@ lib/firebase_options.dart
 .env
 .env.*
 !.env.example
+
+# Local Databases and Logs
+appointments.db
+*.db
+firebase-debug.log
+*.log
+
+# Dependencies
+node_modules/
+.npm/
+Pods/
+**/Pods/

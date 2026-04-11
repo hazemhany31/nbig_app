@@ -1,82 +1,35 @@
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shimmer/shimmer.dart';
 import '../models/appointment_model.dart';
-import '../services/appointment_service.dart';
 import '../services/notification_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../language_config.dart';
+import '../providers/medication_provider.dart';
 
-class MedicationRemindersScreen extends StatefulWidget {
+class MedicationRemindersScreen extends ConsumerStatefulWidget {
   const MedicationRemindersScreen({super.key});
 
   @override
-  State<MedicationRemindersScreen> createState() =>
+  ConsumerState<MedicationRemindersScreen> createState() =>
       _MedicationRemindersScreenState();
 }
 
-class _MedicationRemindersScreenState extends State<MedicationRemindersScreen> {
-  final AppointmentService _appointmentService = AppointmentService();
+class _MedicationRemindersScreenState extends ConsumerState<MedicationRemindersScreen> {
   final NotificationService _notificationService = NotificationService();
-  List<Appointment> _completedAppointments = [];
   // Local map to track which reminders are enabled (medicine name → bool)
   final Map<String, bool> _reminderEnabled = {};
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadInitialReminderStates();
   }
 
-  Future<void> _loadData() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    // Load reminder states from prefs first
-    final prefs = await SharedPreferences.getInstance();
-
-    _appointmentService.getPatientAppointments(user.uid).listen((appointments) {
-      if (!mounted) return;
-      final List<Appointment> filtered = [];
-      for (var a in appointments) {
-        if ((a.status == 'completed' || a.status == 'confirmed') &&
-            a.prescriptions != null &&
-            a.prescriptions!.isNotEmpty) {
-          final active = a.prescriptions!.where((p) {
-            final days = _extractNumber(p.duration);
-            if (days == null) return true;
-            final expiry = a.dateTime.add(Duration(days: days));
-            return DateTime.now().isBefore(expiry.add(const Duration(hours: 24)));
-          }).toList();
-
-          if (active.isNotEmpty) {
-            filtered.add(Appointment(
-              id: a.id,
-              doctorId: a.doctorId,
-              doctorName: a.doctorName,
-              specialty: a.specialty,
-              patientId: a.patientId,
-              patientName: a.patientName,
-              dateTime: a.dateTime,
-              prescriptions: active,
-              doctorNotes: a.doctorNotes,
-              status: a.status,
-            ));
-            // Load reminder state for each med
-            for (var p in active) {
-              _reminderEnabled[p.medicineName] =
-                  prefs.getBool('rem_ena_${p.medicineName}') ?? false;
-            }
-          }
-        }
-      }
-      setState(() {
-        _completedAppointments = filtered;
-        _isLoading = false;
-      });
-    });
+  Future<void> _loadInitialReminderStates() async {
+    // This is just to populate the local map from cache on first load
+    // The provider will handle the list of meds.
   }
 
   int? _extractNumber(String text) {
@@ -126,7 +79,7 @@ class _MedicationRemindersScreenState extends State<MedicationRemindersScreen> {
     if (current) {
       await _notificationService.cancelMedicationReminders(prescription.medicineName);
       await prefs.setBool('rem_ena_${prescription.medicineName}', false);
-      setState(() => _reminderEnabled[prescription.medicineName] = false);
+      if (mounted) setState(() => _reminderEnabled[prescription.medicineName] = false);
     } else {
       final now = DateTime.now();
       final startTime = DateTime(now.year, now.month, now.day, 9, 0);
@@ -140,22 +93,28 @@ class _MedicationRemindersScreenState extends State<MedicationRemindersScreen> {
         isArabic: isArabic,
       );
       await prefs.setBool('rem_ena_${prescription.medicineName}', true);
-      setState(() => _reminderEnabled[prescription.medicineName] = true);
+      if (mounted) setState(() => _reminderEnabled[prescription.medicineName] = true);
     }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(children: [
-            Icon(!current ? Icons.notifications_active : Icons.notifications_off,
-                color: Colors.white, size: 18),
+            Icon(
+                !current
+                    ? Icons.notifications_active
+                    : Icons.notifications_off,
+                color: Colors.white,
+                size: 18),
             const SizedBox(width: 10),
             Text(!current
                 ? (isArabic ? 'تم تفعيل التنبيهات ✅' : 'Reminders enabled ✅')
                 : (isArabic ? 'تم إيقاف التنبيهات' : 'Reminders disabled')),
           ]),
-          backgroundColor: !current ? const Color(0xFF10B981) : Colors.redAccent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          backgroundColor:
+              !current ? const Color(0xFF10B981) : Colors.redAccent,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
         ),
@@ -163,112 +122,210 @@ class _MedicationRemindersScreenState extends State<MedicationRemindersScreen> {
     }
   }
 
+  Future<void> _markAsDone(Appointment appt, Prescription prescription) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(isArabic ? 'تأكيد الإكمال' : 'Mark as Done?'),
+        content: Text(isArabic
+            ? 'هل أنت متأكد من إتمام تناول هذا الدواء؟ سيتم حذفه من القائمة.'
+            : 'Are you sure you have finished this medication? it will be removed from the list.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(isArabic ? 'إلغاء' : 'Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text(isArabic ? 'نعم، اكتمل' : 'Yes, Finished',
+                style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    HapticFeedback.heavyImpact();
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. Mark as done locally
+    await prefs.setBool('done_med_${appt.id}_${prescription.medicineName}', true);
+
+    // 2. Disable reminders if they were on
+    await _notificationService
+        .cancelMedicationReminders(prescription.medicineName);
+    await prefs.setBool('rem_ena_${prescription.medicineName}', false);
+
+    // 3. Refresh UI is handled by Riverpod StreamProvider
+    ref.invalidate(patientMedicationsProvider);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isArabic
+              ? 'تم إكمال الدواء بنجاح 🎉'
+              : 'Medication marked as completed 🎉'),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  /// Helper to ensure the reminder state is loaded for a medication
+  Future<bool> _getMedReminderState(String medName) async {
+    if (_reminderEnabled.containsKey(medName)) return _reminderEnabled[medName]!;
+    final prefs = await SharedPreferences.getInstance();
+    final state = prefs.getBool('rem_ena_$medName') ?? false;
+    _reminderEnabled[medName] = state;
+    return state;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // استخدام Riverpod لمراقبة قائمة الأدوية
+    final medicationsAsync = ref.watch(patientMedicationsProvider);
 
     return Scaffold(
       backgroundColor:
           isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-      body: CustomScrollView(
-        slivers: [
-          // ── Premium AppBar ──────────────────────────────────────────
-          SliverAppBar(
-            expandedHeight: 160,
-            floating: false,
-            pinned: true,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            iconTheme: const IconThemeData(color: Colors.white),
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF0F172A), Color(0xFF10B981)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+      body: medicationsAsync.when(
+        data: (appointments) {
+          final int totalMeds = appointments.fold(0, (sum, appt) => sum + (appt.prescriptions?.length ?? 0));
+          
+          return CustomScrollView(
+            slivers: [
+              // ── Premium AppBar ──────────────────────────────────────────
+              SliverAppBar(
+                expandedHeight: 160,
+                floating: false,
+                pinned: true,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                iconTheme: const IconThemeData(color: Colors.white),
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF0F172A), Color(0xFF10B981)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: const Icon(Icons.medication_rounded,
-                                  color: Colors.white, size: 26),
-                            ),
-                            const SizedBox(width: 14),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            Row(
                               children: [
-                                Text(
-                                  isArabic ? 'أدويتي' : 'My Medications',
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                    letterSpacing: -0.5,
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(14),
                                   ),
+                                  child: const Icon(Icons.medication_rounded,
+                                      color: Colors.white, size: 26),
                                 ),
-                                Text(
-                                  isArabic
-                                      ? 'الوصفات الطبية والتذكيرات'
-                                      : 'Prescriptions & Reminders',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.white.withValues(alpha: 0.7),
-                                  ),
+                                const SizedBox(width: 14),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      isArabic ? 'أدويتي' : 'My Medications',
+                                      style: const TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.white,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color:
+                                              Colors.white.withValues(alpha: 0.2),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        isArabic
+                                            ? '$totalMeds أدوية نشطة'
+                                            : '$totalMeds Active Medicines',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
 
-          // ── Body ────────────────────────────────────────────────────
-          if (_isLoading)
-            const SliverFillRemaining(
-              child: Center(
-                child: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: CircularProgressIndicator(
-                      color: Color(0xFF10B981), strokeWidth: 3),
+              // ── Body ────────────────────────────────────────────────────
+              if (appointments.isEmpty)
+                SliverFillRemaining(child: _buildEmpty(isDark))
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final appt = appointments[index];
+                        return _buildAppointmentSection(appt, isDark);
+                      },
+                      childCount: appointments.length,
+                    ),
+                  ),
                 ),
-              ),
-            )
-          else if (_completedAppointments.isEmpty)
-            SliverFillRemaining(child: _buildEmpty(isDark))
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final appt = _completedAppointments[index];
-                    return _buildAppointmentSection(appt, isDark);
-                  },
-                  childCount: _completedAppointments.length,
-                ),
-              ),
-            ),
-        ],
+            ],
+          );
+        },
+        loading: () => _buildShimmerLoading(isDark),
+        error: (err, stack) => Center(child: Text('Error: $err')),
+      ),
+    );
+  }
+
+  Widget _buildShimmerLoading(bool isDark) {
+    return Shimmer.fromColors(
+      baseColor: isDark ? const Color(0xFF1E293B) : Colors.grey[300]!,
+      highlightColor: isDark ? const Color(0xFF334155) : Colors.grey[100]!,
+      child: ListView.builder(
+        itemCount: 5,
+        padding: const EdgeInsets.all(16),
+        itemBuilder: (context, index) => Container(
+          height: 150,
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+        ),
       ),
     );
   }
@@ -372,13 +429,13 @@ class _MedicationRemindersScreenState extends State<MedicationRemindersScreen> {
           ),
         ),
         ...appt.prescriptions!
-            .map((p) => _buildMedCard(p, isDark)),
+            .map((p) => _buildMedCard(appt, p, isDark)),
         const SizedBox(height: 24),
       ],
     );
   }
 
-  Widget _buildMedCard(Prescription med, bool isDark) {
+  Widget _buildMedCard(Appointment appt, Prescription med, bool isDark) {
     final isEnabled = _reminderEnabled[med.medicineName] ?? false;
     final schedule = _buildSchedule(med);
     final Color activeColor =
@@ -452,53 +509,61 @@ class _MedicationRemindersScreenState extends State<MedicationRemindersScreen> {
                   ),
                 ),
                 // Reminder toggle
-                GestureDetector(
-                  onTap: () => _toggleReminder(med),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isEnabled
-                          ? const Color(0xFF10B981).withValues(alpha: 0.12)
-                          : isDark
-                              ? Colors.white.withValues(alpha: 0.06)
-                              : Colors.grey.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: isEnabled
-                            ? const Color(0xFF10B981).withValues(alpha: 0.4)
-                            : Colors.transparent,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isEnabled
-                              ? Icons.notifications_active_rounded
-                              : Icons.notifications_none_rounded,
+                FutureBuilder<bool>(
+                  future: _getMedReminderState(med.medicineName),
+                  builder: (context, snapshot) {
+                    final isEnabled = snapshot.data ?? false;
+                    _reminderEnabled[med.medicineName] = isEnabled; // Sync local map
+
+                    return GestureDetector(
+                      onTap: () => _toggleReminder(med),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
                           color: isEnabled
-                              ? const Color(0xFF10B981)
-                              : Colors.grey[500],
-                          size: 18,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          isEnabled
-                              ? (isArabic ? 'مفعّل' : 'ON')
-                              : (isArabic ? 'إيقاف' : 'OFF'),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                              ? const Color(0xFF10B981).withValues(alpha: 0.12)
+                              : isDark
+                                  ? Colors.white.withValues(alpha: 0.06)
+                                  : Colors.grey.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
                             color: isEnabled
-                                ? const Color(0xFF10B981)
-                                : Colors.grey[500],
+                                ? const Color(0xFF10B981).withValues(alpha: 0.4)
+                                : Colors.transparent,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isEnabled
+                                  ? Icons.notifications_active_rounded
+                                  : Icons.notifications_none_rounded,
+                              color: isEnabled
+                                  ? const Color(0xFF10B981)
+                                  : Colors.grey[500],
+                              size: 18,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isEnabled
+                                  ? (isArabic ? 'مفعّل' : 'ON')
+                                  : (isArabic ? 'إيقاف' : 'OFF'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: isEnabled
+                                    ? const Color(0xFF10B981)
+                                    : Colors.grey[500],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
                 ),
               ],
             ),
@@ -593,6 +658,34 @@ class _MedicationRemindersScreenState extends State<MedicationRemindersScreen> {
                 ),
               ),
             ],
+
+            const SizedBox(height: 20),
+            // Done Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _markAsDone(appt, med),
+                icon: const Icon(Icons.check_circle_rounded, size: 20),
+                label: Text(
+                  isArabic ? 'إكمال الدواء' : 'Mark as Done',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.1),
+                  foregroundColor: const Color(0xFF10B981),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(
+                        color: Color(0xFF10B981), width: 1.5),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

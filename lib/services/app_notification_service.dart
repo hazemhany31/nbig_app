@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'notification_service.dart';
+import 'database_helper.dart';
 
 class AppNotificationService {
   static final AppNotificationService _instance = AppNotificationService._internal();
@@ -9,7 +11,6 @@ class AppNotificationService {
   AppNotificationService._internal();
 
   StreamSubscription? _subscription;
-  // Keep track of processed notification IDs to avoid duplicate alerts
   final Set<String> _processedIds = {};
   bool _isFirstLoad = true;
 
@@ -19,15 +20,44 @@ class AppNotificationService {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    _isFirstLoad = true;
+    final recipientIds = [user.uid]; // Patient uses Auth UID
+    debugPrint('📡 AppNotificationService: Listening for $recipientIds');
 
     _subscription = FirebaseFirestore.instance
         .collection('notifications')
-        .where('recipientId', isEqualTo: user.uid)
+        .where('recipientId', whereIn: recipientIds)
         .where('status', isEqualTo: 'unread')
         .snapshots()
         .listen(
       (snapshot) {
+        void processDoc(DocumentSnapshot doc) {
+          final docId = doc.id;
+          if (_processedIds.contains(docId)) return;
+          
+          final data = doc.data() as Map<String, dynamic>?;
+          if (data == null) return;
+          
+          _processedIds.add(docId);
+          final title = data['title'] ?? 'تحديث جديد';
+          final body = data['body'] ?? 'لديك إشعار جديد';
+
+          NotificationService().showNotification(title, body);
+
+          final type = data['type'] as String?;
+          final apptId = data['appointmentId'] as String?;
+
+          if (apptId != null && apptId.isNotEmpty) {
+            if (type == 'appointment_confirmed') {
+              DatabaseHelper().updateAppointmentStatusByFirestoreId(apptId, 'confirmed');
+            } else if (type == 'appointment_cancelled') {
+              DatabaseHelper().updateAppointmentStatusByFirestoreId(apptId, 'cancelled');
+            }
+          }
+
+          // In patient app, we mark as read immediately as there is no notification screen yet
+          _markAsRead(docId);
+        }
+
         if (_isFirstLoad) {
           final now = DateTime.now();
           for (var doc in snapshot.docs) {
@@ -35,39 +65,30 @@ class AppNotificationService {
             final createdAt = data?['createdAt'] != null
                 ? (data!['createdAt'] as Timestamp).toDate()
                 : null;
-            
-            // If notification is older than 10 minutes, just record it as processed
-            // If it's very recent, we might want to alert the user even on startup
-            if (createdAt == null || now.difference(createdAt).inMinutes > 10) {
+
+            if (createdAt != null && now.difference(createdAt).inMinutes > 10) {
               _processedIds.add(doc.id);
             }
           }
           _isFirstLoad = false;
-          // If we didn't add all to processedIds, they will be processed in the loop below
-          if (_processedIds.length == snapshot.docs.length) return;
+
+          for (var doc in snapshot.docs) {
+            if (!_processedIds.contains(doc.id)) {
+              processDoc(doc);
+            }
+          }
+          return;
         }
 
-        for (var doc in snapshot.docChanges) {
-          if (doc.type == DocumentChangeType.added) {
-            final data = doc.doc.data();
-            final docId = doc.doc.id;
-
-            if (data != null && !_processedIds.contains(docId)) {
-              _processedIds.add(docId);
-              final title = data['title'] ?? 'تحديث جديد';
-              final body = data['body'] ?? 'لديك إشعار جديد';
-
-              NotificationService().showNotification(title, body);
-
-              // Optionally mark as read immediately or let the app UI handle it
-              // For now, we just mark as read so it doesn't trigger again on another device
-              _markAsRead(docId);
-            }
+        for (var change in snapshot.docChanges) {
+          if (change.type == DocumentChangeType.added ||
+              change.type == DocumentChangeType.modified) {
+            processDoc(change.doc);
           }
         }
       },
       onError: (e) {
-// debugPrint('⚠️ AppNotificationService stream error: $e');
+        debugPrint('AppNotificationService stream error: $e');
       },
       cancelOnError: false,
     );
@@ -80,7 +101,7 @@ class AppNotificationService {
           .doc(notificationId)
           .update({'status': 'read'});
     } catch (e) {
-// debugPrint('⚠️ Failed to mark notification as read: $e');
+      debugPrint('Failed to mark notification as read: $e');
     }
   }
 

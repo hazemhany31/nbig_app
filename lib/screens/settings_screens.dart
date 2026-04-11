@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // === COMMON SETTINGS PAGE LAYOUT ===
 class _SettingsBaseScreen extends StatelessWidget {
@@ -204,6 +205,32 @@ class PrivacyPolicyScreen extends StatelessWidget {
               ? 'باستخدامك لهذا التطبيق، فإنك توافق على جمع واستخدام معلوماتك وفقاً لهذه السياسة.'
               : 'By using this app, you consent to the collection and use of your information in accordance with this policy.',
             style: TextStyle(fontSize: 14, color: isDark ? Colors.grey[400] : Colors.grey[700], height: 1.5),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                // Replace with actual privacy policy website URL later
+                final Uri url = Uri.parse('https://your-privacy-policy-url-here.com');
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                }
+              },
+              icon: Icon(Icons.open_in_new_rounded, color: isDark ? Colors.white : const Color(0xFF0F172A), size: 18),
+              label: Text(
+                isArabic ? 'عرض سياسة الخصوصية الكاملة' : 'View Full Privacy Policy',
+                style: TextStyle(
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                side: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.grey[300]!),
+              ),
+            ),
           ),
         ],
       ),

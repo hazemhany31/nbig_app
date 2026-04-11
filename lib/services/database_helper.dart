@@ -58,6 +58,15 @@ class DatabaseHelper {
     try {
       await db.execute('ALTER TABLE UserAppointments ADD COLUMN firestoreId TEXT');
     } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE UserAppointments ADD COLUMN isAcknowledged INTEGER DEFAULT 0');
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE UserAppointments ADD COLUMN cancelledBy TEXT');
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE UserAppointments ADD COLUMN expiresAt TEXT');
+    } catch (_) {}
 
     return db;
   }
@@ -109,6 +118,13 @@ class DatabaseHelper {
     }
   }
 
+  Future<Set<String>> getFavoriteIds() async {
+    final db = await database;
+    if (db == null) return {};
+    final favList = await db.query('UserFavorites');
+    return favList.map((e) => e['doctorId'].toString()).toSet();
+  }
+
   Future<List<Doctor>> searchDoctors(String keyword) async {
     final db = await database;
     if (db == null) return [];
@@ -156,18 +172,51 @@ class DatabaseHelper {
     String date,
     String time,
     String? firestoreId,
+    {String? expiresAt}
   ) async {
     final db = await database;
     if (db == null) return;
+    
+    // Check if appointment already exists (non-cancelled)
+    if (await hasLocalAppointment(doctorId, date, time)) {
+      debugPrint('⚠️ Duplicate local appointment ignored: $doctorName at $time on $date');
+      return;
+    }
+
     await db.insert('UserAppointments', {
       'doctorId': doctorId,
       'doctorName': doctorName,
       'specialty': specialty,
       'date': date,
       'time': time,
-      'status': 'upcoming',
+      'status': 'pending',
       'firestoreId': firestoreId,
+      'expiresAt': expiresAt,
     });
+  }
+
+  Future<bool> hasLocalAppointment(String doctorId, String date, [String? time]) async {
+    final db = await database;
+    if (db == null) return false;
+    
+    // Check for any appointment on this date (day-locking rule)
+    final maps = await db.query(
+      'UserAppointments',
+      where: 'doctorId = ? AND date = ?',
+      whereArgs: [doctorId, date],
+    );
+    
+    for (var m in maps) {
+      final status = m['status'] as String?;
+      final cancelledBy = m['cancelledBy'] as String?;
+      
+      if (status == 'cancelled' && cancelledBy == 'patient') {
+        continue; // Don't block if patient cancelled
+      }
+      return true; // Found an active or doctor-cancelled appointment, which blocks the day
+    }
+    
+    return false;
   }
 
   Future<List<Map<String, dynamic>>> getAppointments(String status) async {
@@ -186,9 +235,42 @@ class DatabaseHelper {
     if (db == null) return -1;
     return await db.update(
       'UserAppointments',
-      {'status': 'canceled'},
+      {'status': 'cancelled', 'cancelledBy': 'patient', 'isAcknowledged': 1},
       where: 'id = ?',
       whereArgs: [id],
+    );
+  }
+
+  Future<Map<String, dynamic>?> getAppointmentById(int id) async {
+    final db = await database;
+    if (db == null) return null;
+    final results = await db.query(
+      'UserAppointments',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return results.isNotEmpty ? results.first : null;
+  }
+
+  Future<int> acknowledgeCancellations() async {
+    final db = await database;
+    if (db == null) return -1;
+    return await db.update(
+      'UserAppointments',
+      {'isAcknowledged': 1},
+      where: 'status = ? AND isAcknowledged = ?',
+      whereArgs: ['cancelled', 0],
+    );
+  }
+
+  Future<int> cleanupOldCancellations() async {
+    final db = await database;
+    if (db == null) return -1;
+    final String todayStr = DateTime.now().toIso8601String().split('T')[0];
+    return await db.delete(
+      'UserAppointments',
+      where: 'status = ? AND date < ?',
+      whereArgs: ['cancelled', todayStr],
     );
   }
 
@@ -203,6 +285,58 @@ class DatabaseHelper {
     );
   }
 
+  Future<int> deleteAppointment(int id) async {
+    final db = await database;
+    if (db == null) return -1;
+    return await db.delete(
+      'UserAppointments',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> deduplicateAppointments() async {
+    final db = await database;
+    if (db == null) return;
+    
+    // Simple deduplication logic: keep the record with the largest ID (most recent)
+    // for each unique doctorId, date, time combination where status is the same.
+    try {
+      await db.execute('''
+        DELETE FROM UserAppointments 
+        WHERE id NOT IN (
+          SELECT MAX(id) 
+          FROM UserAppointments 
+          GROUP BY doctorId, date, time, status
+        )
+      ''');
+      debugPrint('✅ Database deduplication complete');
+    } catch (e) {
+       debugPrint('❌ Error deduplicating appointments: $e');
+    }
+  }
+
+  /// Returns all firestoreIds of appointments that are still active (pending/confirmed/accepted)
+  Future<List<String>> getAllActiveFirestoreIds() async {
+    final db = await database;
+    if (db == null) return [];
+    final results = await db.query(
+      'UserAppointments',
+      columns: ['firestoreId'],
+      where: "firestoreId IS NOT NULL AND status IN ('pending', 'confirmed', 'accepted')",
+    );
+    return results
+        .map((e) => e['firestoreId'] as String)
+        .where((id) => id.isNotEmpty)
+        .toList();
+  }
+
+  Future<int> deleteAllAppointments() async {
+    final db = await database;
+    if (db == null) return -1;
+    return await db.delete('UserAppointments');
+  }
+
   Future<int> markAppointmentAsRated(int id) async {
     final db = await database;
     if (db == null) return -1;
@@ -214,6 +348,21 @@ class DatabaseHelper {
     );
   }
 
+  Future<int> updateAppointmentStatusByFirestoreId(String firestoreId, String status, {String? cancelledBy}) async {
+    final db = await database;
+    if (db == null) return -1;
+    return await db.update(
+      'UserAppointments',
+      {
+        'status': status, 
+        'isAcknowledged': status == 'cancelled' ? 0 : 1,
+        'cancelledBy': cancelledBy ?? (status == 'cancelled' ? 'doctor' : null),
+      },
+      where: 'firestoreId = ?',
+      whereArgs: [firestoreId],
+    );
+  }
+
   Future<List<String>> getBookedTimes(String doctorName, String date) async {
     final db = await database;
     if (db == null) return [];
@@ -221,7 +370,7 @@ class DatabaseHelper {
       'UserAppointments',
       columns: ['time'],
       where: 'doctorName = ? AND date = ? AND status != ?',
-      whereArgs: [doctorName, date, 'canceled'],
+      whereArgs: [doctorName, date, 'cancelled'],
     );
     return result.map((e) => e['time'] as String).toList();
   }

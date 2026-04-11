@@ -54,6 +54,26 @@ class DoctorService {
     }
   }
 
+  /// جلب ملف الدكتور من `doctors` باستخدام `userId` = Firebase Auth UID (لجلسة الطبيب)
+  Future<Doctor?> getDoctorByFirebaseAuthUid(String firebaseAuthUid) async {
+    try {
+      final q = await _firestore
+          .collection('doctors')
+          .where('userId', isEqualTo: firebaseAuthUid)
+          .limit(1)
+          .get();
+      if (q.docs.isEmpty) return null;
+      final doc = q.docs.first;
+      final data = doc.data();
+      data['id'] = doc.id;
+      data['doctorId'] = doc.id;
+      data['userId'] = data['userId'] ?? doc.id;
+      return Doctor.fromMap(data);
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// جلب دكتور معين بـ Firebase UID
   Future<Doctor?> getDoctorById(String doctorId) async {
     try {

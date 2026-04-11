@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/database_helper.dart';
@@ -12,9 +13,9 @@ import '../language_config.dart';
 import 'chat/chat_screen.dart' as firebase_chat;
 import '../models/chat.dart';
 
+import 'package:shimmer/shimmer.dart';
 import '../services/chat_service.dart';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../models/appointment_model.dart' as model;
 import '../services/appointment_service.dart';
@@ -30,6 +31,13 @@ class DoctorDetailsScreen extends StatefulWidget {
 
 class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
   final FocusNode _focusNode = FocusNode();
+  bool _isFavorite = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isFavorite = widget.doctor['isFavorite'] == true;
+  }
 
   @override
   void dispose() {
@@ -124,16 +132,22 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        (doc['isFavorite'] ?? false)
+                        _isFavorite
                             ? Icons.favorite_rounded
                             : Icons.favorite_border_rounded,
-                        color: (doc['isFavorite'] ?? false)
+                        color: _isFavorite
                             ? const Color(0xFFF43F5E)
                             : Colors.white,
                         size: 22,
                       ),
                     ),
-                    onPressed: () {},
+                    onPressed: () async {
+                      bool newStatus = await DatabaseHelper().toggleFavorite(widget.doctor['id']);
+                      setState(() {
+                        _isFavorite = newStatus;
+                        widget.doctor['isFavorite'] = newStatus;
+                      });
+                    },
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -539,17 +553,8 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                       // Chat Button
                       GestureDetector(
                         onTap: () async {
-                          // إظهار واجهة التحميل السريعة إذا كان الاتصال بطيئاً جداً
-                          bool isLoading = true;
-                          Future.delayed(const Duration(milliseconds: 300), () {
-                            if (isLoading && context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(isArabic ? 'جاري فتح المحادثة...' : 'Opening chat...'), duration: const Duration(milliseconds: 500)),
-                              );
-                            }
-                          });
-
                           try {
+
                             final chatService = ChatService();
                             final patientId = FirebaseAuth.instance.currentUser?.uid ?? '';
                             final patientName = FirebaseAuth.instance.currentUser?.displayName ?? 'Patient';
@@ -564,8 +569,7 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                               patientName: patientName,
                             );
 
-                            isLoading = false;
-                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
 
                             if (context.mounted) {
                               // 2. Instead of loading the chat from firestore, create the object locally to save time
@@ -587,8 +591,7 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                               );
                             }
                           } catch (e) {
-                            isLoading = false;
-                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('Error: $e')),
                             );
@@ -820,15 +823,12 @@ class _CategoryDoctorsScreenState extends State<CategoryDoctorsScreen> {
             ),
           ),
           if (_isLoading)
-            const SliverFillRemaining(
-              child: Center(
-                child: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: CircularProgressIndicator(
-                    color: Color(0xFF0EA5E9),
-                    strokeWidth: 3,
-                  ),
+            SliverPadding(
+              padding: const EdgeInsets.all(20),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _buildShimmerCard(context),
+                  childCount: 6,
                 ),
               ),
             )
@@ -1051,12 +1051,25 @@ class _CategoryDoctorsScreenState extends State<CategoryDoctorsScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (doc.isFavorite)
-                            const Icon(
-                              Icons.favorite_rounded,
-                              color: Color(0xFFF43F5E),
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                            onPressed: () async {
+                              bool newStatus = await DatabaseHelper().toggleFavorite(doc.id);
+                              setState(() {
+                                doc.isFavorite = newStatus;
+                              });
+                            },
+                            icon: Icon(
+                              doc.isFavorite
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
+                              color: doc.isFavorite
+                                  ? const Color(0xFFF43F5E)
+                                  : (isDark ? Colors.grey[600] : Colors.grey[400]),
                               size: 22,
                             ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -1253,6 +1266,84 @@ class _CategoryDoctorsScreenState extends State<CategoryDoctorsScreen> {
       );
     }
   }
+
+  Widget _buildShimmerCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Shimmer.fromColors(
+        baseColor: isDark ? const Color(0xFF1E293B) : Colors.grey[300]!,
+        highlightColor: isDark ? const Color(0xFF334155) : Colors.grey[100]!,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: 100,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          width: 60,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class AppointmentScreen extends StatefulWidget {
@@ -1281,12 +1372,15 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
   int _selectedTime = -1;
   bool _isSaving = false;
   List<String> _bookedTimes = [];
+  bool _alreadyHasAppointment = false;
+  bool _isCheckingExisting = false;
 
   @override
   void initState() {
     super.initState();
     _selectedDate = _getFirstAvailableDate();
     _checkBookedTimes();
+    _checkExistingAppointment();
   }
 
   bool _isDayAvailable(DateTime date) {
@@ -1387,14 +1481,62 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
       widget.doctorName,
       date,
     );
+    
+    // Fetch from Firestore for real-time accuracy across devices
+    List<String> firestoreBooked = [];
+    try {
+      final String firestoreDateStr = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
+      final snapshot = await FirebaseFirestore.instance
+          .collection('appointments')
+          .where('doctorId', isEqualTo: widget.doctorId)
+          .where('date', isEqualTo: firestoreDateStr)
+          .where('status', isNotEqualTo: 'cancelled')
+          .get();
+          
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        if (data['time'] != null) {
+          firestoreBooked.add(data['time'].toString());
+        }
+      }
+    } catch(e) {
+      debugPrint("Error fetching booked times: $e");
+    }
+
+    if (!mounted) return;
     setState(() {
-      _bookedTimes = booked;
-      // لو الوقت اللي مختاره طلع محجوز، الغي الاختيار
-      if (_selectedTime != -1 &&
-          _bookedTimes.contains(_formatTime(9 + _selectedTime))) {
-        _selectedTime = -1;
+      _bookedTimes = {...booked, ...firestoreBooked}.toList();
+      // Deselect if currently selected time is booked
+      if (_selectedTime != -1) {
+        final slots = _getTimeSlotsForSelectedDate();
+        final timeStr = _selectedTime >= 0 && _selectedTime < slots.length
+            ? slots[_selectedTime]
+            : _formatTime(9 + _selectedTime);
+            
+        if (_bookedTimes.contains(timeStr)) {
+          _selectedTime = -1;
+        }
       }
     });
+  }
+
+  void _checkExistingAppointment() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    
+    setState(() => _isCheckingExisting = true);
+    try {
+      final service = AppointmentService();
+      final exists = await service.hasAppointmentOnDate(user.uid, widget.doctorId, _selectedDate);
+      if (mounted) {
+        setState(() {
+          _alreadyHasAppointment = exists;
+          _isCheckingExisting = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isCheckingExisting = false);
+    }
   }
 
   // فتح التقويم
@@ -1412,54 +1554,13 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
         _selectedTime = -1;
       });
       _checkBookedTimes();
+      _checkExistingAppointment();
     }
   }
 
   void _onConfirmPressed() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor,
-        title: Text(
-          isArabic ? "تأكيد الحجز" : "Confirm Booking",
-          style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
-        ),
-        content: Text(
-          isArabic
-              ? "هل أنت متأكد من حجز موعد مع ${widget.doctorName} يوم ${_formatDate(_selectedDate)} الساعة ${_formatTime(9 + _selectedTime)}؟"
-              : "Are you sure you want to book with ${widget.doctorName} on ${_formatDate(_selectedDate)} at ${_formatTime(9 + _selectedTime)}?",
-          style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              isArabic ? "إلغاء" : "Cancel",
-              style: TextStyle(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.grey[400]
-                    : Colors.grey,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _saveBooking();
-            },
-            child: Text(
-              isArabic ? "تأكيد" : "Confirm",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.blue[300]
-                    : Colors.blue,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    // بدون dialog تأكيد - مباشرة يحجز
+    _saveBooking();
   }
 
   Future<void> _saveBooking() async {
@@ -1484,16 +1585,22 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
         }
       }
 
-      final hasAppt = await appointmentService.hasAppointmentOnDate(patientId, _selectedDate);
+      final slots = _getTimeSlotsForSelectedDate();
+      final timeStr = _selectedTime >= 0 && _selectedTime < slots.length
+          ? slots[_selectedTime]
+          : _formatTime(9 + _selectedTime);
+
+      final hasAppt = await appointmentService.hasAppointmentOnDate(patientId, widget.doctorId, _selectedDate);
+      final hasLocal = await DatabaseHelper().hasLocalAppointment(widget.doctorId, _formatDate(_selectedDate), timeStr);
       
-      if (hasAppt && mounted) {
+      if ((hasAppt || hasLocal) && mounted) {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               isArabic 
-                ? 'لديك حجز بالفعل في هذا اليوم. لا يمكن حجز أكثر من موعد في اليوم الواحد.' 
-                : 'You already have an appointment on this date. Only one appointment per day is allowed.'
+                ? 'لديك حجز بالفعل في هذا اليوم أو المعاد. لا يمكن تكرار الحجز.' 
+                : 'You already have an appointment on this date or time slot. Duplicates are not allowed.'
             ),
             backgroundColor: Colors.redAccent,
           ),
@@ -1501,17 +1608,12 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
         return;
       }
 
-      final slots = _getTimeSlotsForSelectedDate();
-      final timeStr = _selectedTime >= 0 && _selectedTime < slots.length
-          ? slots[_selectedTime]
-          : _formatTime(9 + _selectedTime);
-
       // 1. Prepare Firestore Data
       String? firestoreId;
       try {
         firestoreId = await appointmentService.createAppointment(
           doctorId: widget.doctorId,
-          doctorUserId: widget.doctorUserId, // Added userId
+          doctorUserId: widget.doctorUserId,
           doctorName: widget.doctorName,
           specialty: widget.specialty,
           patientId: patientId,
@@ -1525,7 +1627,19 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
           'patientsCount': FieldValue.increment(1),
         });
       } catch (e) {
-// debugPrint('⚠️ Firestore sync failed: $e');
+        // If Firestore transaction fails (e.g. slot is already taken), stop booking completely
+        if (mounted) {
+          setState(() => _isSaving = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isArabic ? "لم ينجح الحجز: ${e.toString().replaceAll('Exception: ', '')}" : "Booking failed: ${e.toString().replaceAll('Exception: ', '')}"
+              ),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+        return; // Don't proceed to save locally or send notifications
       }
 
       // 2. Save locally (SQLite) with Firestore ID
@@ -1536,6 +1650,7 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
         _formatDate(_selectedDate),
         timeStr,
         firestoreId,
+        // لا expiresAt - مفيش countdown بعد كده، الحجز pending لحد ما الطبيب يوافق
       );
 
       // 3. Schedule reminder notification (1 hour before appointment)
@@ -1819,6 +1934,42 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
                     ),
                   );
                 }
+
+                if (_alreadyHasAppointment) {
+                  return Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline_rounded, color: Colors.red, size: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                isArabic ? 'حجوزات مسبقة' : 'Existing Booking',
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Colors.red),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                isArabic
+                                    ? 'لديك حجز بالفعل في هذا اليوم. لا يمكن حجز أكثر من موعد في اليوم الواحد.'
+                                    : 'You already have an appointment on this date. Only one appointment per day is allowed.',
+                                style: TextStyle(fontSize: 13, color: Colors.red[800]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
                 return GridView.builder(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
@@ -1886,23 +2037,23 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                gradient: (_selectedTime == -1 || _isSaving)
+                gradient: (_selectedTime == -1 || _isSaving || _alreadyHasAppointment || _isCheckingExisting)
                     ? null
                     : const LinearGradient(
                         colors: [Color(0xFF10B981), Color(0xFF6366F1)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                color: (_selectedTime == -1 || _isSaving)
+                color: (_selectedTime == -1 || _isSaving || _alreadyHasAppointment || _isCheckingExisting)
                     ? (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0))
                     : null,
                 borderRadius: BorderRadius.circular(18),
-                boxShadow: (_selectedTime != -1 && !_isSaving)
+                boxShadow: (_selectedTime != -1 && !_isSaving && !_alreadyHasAppointment && !_isCheckingExisting)
                     ? [BoxShadow(color: const Color(0xFF10B981).withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 6))]
                     : null,
               ),
               child: ElevatedButton(
-                onPressed: (_selectedTime == -1 || _isSaving) ? null : _onConfirmPressed,
+                onPressed: (_selectedTime == -1 || _isSaving || _alreadyHasAppointment || _isCheckingExisting) ? null : _onConfirmPressed,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
@@ -1910,16 +2061,18 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                 ),
-                child: _isSaving
+                child: (_isSaving || _isCheckingExisting)
                     ? const SizedBox(
                         width: 24,
                         height: 24,
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                       )
                     : Text(
-                        isArabic ? 'تأكيد الحجز' : 'Confirm Booking',
+                        _alreadyHasAppointment 
+                          ? (isArabic ? 'لديك حجز مسبق' : 'Already Booked')
+                          : (isArabic ? 'تأكيد الحجز' : 'Confirm Booking'),
                         style: TextStyle(
-                          color: (_selectedTime == -1)
+                          color: (_selectedTime == -1 || _alreadyHasAppointment)
                               ? (isDark ? Colors.white38 : Colors.black26)
                               : Colors.white,
                           fontSize: 16,

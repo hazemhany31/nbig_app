@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:ui' as ui;
 import '../models/doctor_model.dart';
 import 'dart:async';
 import 'sub_screens.dart';
+import '../widgets/shimmer_loading.dart';
+import '../widgets/animated_list_item.dart';
+import '../widgets/animated_press_button.dart';
+import '../services/hybrid_doctor_service.dart';
+import '../services/database_helper.dart';
 
 class SearchDoctorsScreen extends StatefulWidget {
   const SearchDoctorsScreen({super.key});
@@ -15,7 +19,7 @@ class SearchDoctorsScreen extends StatefulWidget {
 class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  
+
   List<Doctor> _results = [];
   bool _isLoading = false;
   Timer? _debounce;
@@ -45,7 +49,12 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
 
   Future<void> _performSearch(String query) async {
     if (query.trim().isEmpty) {
-      if (mounted) setState(() { _results = []; _isLoading = false; });
+      if (mounted) {
+        setState(() {
+          _results = [];
+          _isLoading = false;
+        });
+      }
       return;
     }
 
@@ -53,17 +62,18 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
 
     try {
       final String searchLower = query.trim().toLowerCase();
-      // Fetch all to filter locally for better text matching
-      final snapshot = await FirebaseFirestore.instance.collection('doctors').get();
-      final List<Doctor> allDocs = snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return Doctor.fromMap(data);
-      }).toList();
+
+      final HybridDoctorService doctorService = HybridDoctorService();
+      // Use HybridDoctorService which already merges local favorites
+      final List<Doctor> allDocs = await doctorService.getDoctors();
 
       final filtered = allDocs.where((doc) {
-        final matchesName = doc.name.toLowerCase().contains(searchLower);
-        final matchesSpec = doc.specialty.toLowerCase().contains(searchLower);
+        final matchesName =
+            doc.name.toLowerCase().contains(searchLower) ||
+            (doc.nameAr.toLowerCase().contains(searchLower));
+        final matchesSpec =
+            doc.specialty.toLowerCase().contains(searchLower) ||
+            (doc.specialtyAr.toLowerCase().contains(searchLower));
         return matchesName || matchesSpec;
       }).toList();
 
@@ -83,12 +93,17 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark
+          ? const Color(0xFF0F172A)
+          : const Color(0xFFF8FAFC),
       appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: isDark ? Colors.white : Colors.black87),
+          icon: Icon(
+            Icons.arrow_back_rounded,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Hero(
@@ -99,9 +114,13 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
               controller: _searchController,
               focusNode: _focusNode,
               onChanged: _onSearchChanged,
-              style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 16),
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87,
+                fontSize: 16,
+              ),
               decoration: InputDecoration(
-                hintText: 'ابحث عن طبيب أو تخصص...', // "Search doctor or specialty..."
+                hintText:
+                    'ابحث عن طبيب أو تخصص...', // "Search doctor or specialty..."
                 hintStyle: TextStyle(color: Colors.grey[400]),
                 border: InputBorder.none,
               ),
@@ -126,8 +145,19 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
 
   Widget _buildBody(bool isDark) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF0EA5E9)),
+      return ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: 5,
+        itemBuilder: (context, index) {
+          return const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: ShimmerLoading(
+              width: double.infinity,
+              height: 90,
+              borderRadius: 16,
+            ),
+          );
+        },
       );
     }
 
@@ -136,7 +166,11 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_rounded, size: 80, color: Colors.grey.withValues(alpha: 0.3)),
+            Icon(
+              Icons.search_rounded,
+              size: 80,
+              color: Colors.grey.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 16),
             Text(
               'ابحث عن أطباء أو تخصصات', // "Search docs or specialties"
@@ -156,7 +190,11 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.person_off_rounded, size: 80, color: Colors.grey.withValues(alpha: 0.3)),
+            Icon(
+              Icons.person_off_rounded,
+              size: 80,
+              color: Colors.grey.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 16),
             Text(
               'لم نتمكن من العثور على نتائج', // "Couldn't find results"
@@ -176,15 +214,18 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
       itemCount: _results.length,
       itemBuilder: (context, index) {
         final doc = _results[index];
-        return _buildDoctorCard(doc, isDark);
+        return AnimatedListItem(
+          index: index,
+          child: _buildDoctorCard(doc, isDark),
+        );
       },
     );
   }
 
   Widget _buildDoctorCard(Doctor doc, bool isDark) {
     // A simplified elegant card for search results
-    return GestureDetector(
-      onTap: () {
+    return AnimatedPressButton(
+      onPressed: () {
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -215,7 +256,11 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
                   ? NetworkImage(doc.image)
                   : null,
               child: (doc.image.isEmpty)
-                  ? const Icon(Icons.person_rounded, color: Color(0xFF0EA5E9), size: 30)
+                  ? const Icon(
+                      Icons.person_rounded,
+                      color: Color(0xFF0EA5E9),
+                      size: 30,
+                    )
                   : null,
             ),
             const SizedBox(width: 16),
@@ -243,7 +288,32 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+            const SizedBox(width: 8),
+            IconButton(
+              constraints: const BoxConstraints(),
+              padding: EdgeInsets.zero,
+              onPressed: () async {
+                bool newStatus = await DatabaseHelper().toggleFavorite(doc.id);
+                setState(() {
+                  doc.isFavorite = newStatus;
+                });
+              },
+              icon: Icon(
+                doc.isFavorite
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+                color: doc.isFavorite
+                    ? const Color(0xFFF43F5E)
+                    : Colors.grey[400],
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: Colors.grey,
+            ),
           ],
         ),
       ),

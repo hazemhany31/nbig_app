@@ -3,6 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
 import 'screens/auth/auth_check.dart';
 import 'services/notification_service.dart';
@@ -13,7 +15,27 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // === تهيئة Firebase مع الإعدادات الصحيحة ===
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') rethrow;
+    debugPrint('ℹ️ Firebase already initialized, continuing...');
+  }
+
+  // === إعداد Firebase Crashlytics للإنتاج ===
+  if (!kIsWeb) {
+    FlutterError.onError = (errorDetails) {
+      FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+    };
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+  }
 
   // === تفعيل Firestore Offline Persistence ===
   FirebaseFirestore.instance.settings = const Settings(
@@ -22,11 +44,9 @@ void main() async {
   );
 
   if (!kIsWeb) {
-    // Run in background — never block app startup
-    NotificationService().init();
-    PushNotificationService().initialize();
+    await NotificationService().init();
+    await PushNotificationService().initialize();
   }
-
 
   // === حذف الدكاترة القديمة (تم التعطيل للاعتماد على Firestore) ===
   // await DatabaseHelper().recreateDoctorsTable();
@@ -36,7 +56,12 @@ void main() async {
   await DatabaseHelper().insertDoctor({ ... });
   */
 
-  runApp(const DoctorApp());
+  runApp(
+    // تغليف التطبيق بـ ProviderScope لعمل Riverpod
+    const ProviderScope(
+      child: DoctorApp(),
+    ),
+  );
 }
 
 class DoctorApp extends StatefulWidget {
@@ -152,7 +177,7 @@ class _DoctorAppState extends State<DoctorApp> {
         ),
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
-            TargetPlatform.android: ZoomPageTransitionsBuilder(),
+            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
             TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           },
         ),
@@ -160,26 +185,26 @@ class _DoctorAppState extends State<DoctorApp> {
       darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0B1120),
+        scaffoldBackgroundColor: const Color(0xFF121212),
         primaryColor: const Color(0xFF10B981),
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFF10B981),
           onPrimary: Colors.white,
           secondary: Color(0xFF818CF8),
           onSecondary: Colors.white,
-          surface: Color(0xFF1E293B),
-          onSurface: Color(0xFFF1F5F9),
-          outline: Color(0xFF334155),
-          error: Color(0xFFF87171),
+          surface: Color(0xFF1E1E1E),
+          onSurface: Color(0xFFE0E0E0),
+          outline: Color(0xFF333333),
+          error: Color(0xFFEF4444),
         ),
-        cardColor: const Color(0xFF1E293B),
+        cardColor: const Color(0xFF1E1E1E),
         textTheme: const TextTheme(
           displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0, color: Color(0xFFF1F5F9)),
           displayMedium: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Color(0xFFF1F5F9)),
           titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFFF1F5F9)),
           titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Color(0xFFF1F5F9)),
-          bodyLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFFCBD5E1)),
-          bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xFF94A3B8)),
+          bodyLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFFE0E0E0)),
+          bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xFFA0A0A0)),
           labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.2),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
@@ -192,19 +217,19 @@ class _DoctorAppState extends State<DoctorApp> {
         cardTheme: const CardThemeData(
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(20))),
-          color: Color(0xFF1E293B),
+          color: Color(0xFF1E1E1E),
         ),
         inputDecorationTheme: const InputDecorationTheme(
           filled: true,
-          fillColor: Color(0xFF1E293B),
+          fillColor: Color(0xFF1E1E1E),
           contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(16)),
-            borderSide: BorderSide(color: Color(0xFF334155)),
+            borderSide: BorderSide(color: Color(0xFF333333)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(16)),
-            borderSide: BorderSide(color: Color(0xFF334155)),
+            borderSide: BorderSide(color: Color(0xFF333333)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(16)),
@@ -218,11 +243,11 @@ class _DoctorAppState extends State<DoctorApp> {
         switchTheme: SwitchThemeData(
           thumbColor: const WidgetStatePropertyAll(Colors.white),
           trackColor: WidgetStateProperty.resolveWith((s) =>
-            s.contains(WidgetState.selected) ? const Color(0xFF10B981) : const Color(0xFF334155)),
+            s.contains(WidgetState.selected) ? const Color(0xFF10B981) : const Color(0xFF333333)),
         ),
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
-            TargetPlatform.android: ZoomPageTransitionsBuilder(),
+            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
             TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           },
         ),

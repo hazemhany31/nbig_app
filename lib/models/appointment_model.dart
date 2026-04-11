@@ -65,6 +65,7 @@ class Appointment {
   final String status; // pending, confirmed, cancelled, completed
   final DateTime? createdAt;
   final String? cancelReason;
+  final String? cancelledBy; // patient, doctor
   final List<Prescription>? prescriptions;
   final DateTime? medicationReminderTime;
   final String? doctorNotes;
@@ -82,6 +83,7 @@ class Appointment {
     this.status = 'pending',
     this.createdAt,
     this.cancelReason,
+    this.cancelledBy,
     this.prescriptions,
     this.medicationReminderTime,
     this.doctorNotes,
@@ -105,6 +107,7 @@ class Appointment {
           ? (data['createdAt'] as Timestamp).toDate()
           : null,
       cancelReason: data['cancelReason'],
+      cancelledBy: data['cancelledBy'],
       prescriptions: data['prescriptions'] != null
           ? (data['prescriptions'] as List<dynamic>)
               .map((e) => Prescription.fromMap(e as Map<String, dynamic>))
@@ -131,6 +134,7 @@ class Appointment {
       'status': status,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
       'cancelReason': cancelReason,
+      'cancelledBy': cancelledBy,
       'prescriptions': prescriptions?.map((e) => e.toMap()).toList(),
       'medicationReminderTime': medicationReminderTime != null
           ? Timestamp.fromDate(medicationReminderTime!)

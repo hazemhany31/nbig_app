@@ -69,6 +69,8 @@ class Appointment {
   final List<Prescription>? prescriptions;
   final DateTime? medicationReminderTime;
   final String? doctorNotes;
+  final String? patientPhotoUrl;
+  final Map<String, dynamic>? medicationTracker;
 
   Appointment({
     required this.id,
@@ -87,6 +89,8 @@ class Appointment {
     this.prescriptions,
     this.medicationReminderTime,
     this.doctorNotes,
+    this.patientPhotoUrl,
+    this.medicationTracker,
   });
 
   /// Create Appointment from Firestore document
@@ -117,6 +121,8 @@ class Appointment {
           ? (data['medicationReminderTime'] as Timestamp).toDate()
           : null,
       doctorNotes: data['doctorNotes'],
+      patientPhotoUrl: data['patientPhotoUrl'],
+      medicationTracker: data['medicationTracker'] as Map<String, dynamic>?,
     );
   }
 
@@ -140,6 +146,8 @@ class Appointment {
           ? Timestamp.fromDate(medicationReminderTime!)
           : null,
       'doctorNotes': doctorNotes,
+      'patientPhotoUrl': patientPhotoUrl,
+      'medicationTracker': medicationTracker,
     };
   }
 

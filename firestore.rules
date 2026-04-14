@@ -53,7 +53,7 @@ service cloud.firestore {
       // (mainly needed for incrementing patientsCount and updating ratings without complex diff evaluations that fail when fields don't exist)
       allow update: if isAuthenticated();
       
-      allow delete: if isUser(doctorId);
+      allow delete: if isAuthenticated();
       allow create: if isUser(doctorId);
     }
     
@@ -80,7 +80,7 @@ service cloud.firestore {
       // Users can read/write their own info.
       // (Doctors can read patient profiles if needed).
       allow read: if isAuthenticated(); 
-      allow write: if isUser(userId);
+      allow write: if isAuthenticated();
 
       // --- Medical Records Subcollection ---
       match /medical_records/{recordId} {

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../models/chat.dart';
 import '../../services/chat_service.dart';
 import '../chat/chat_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 /// قائمة محادثات الطبيب — نفس مستندات `chats` التي يراها المريض
 class DoctorChatListScreen extends StatefulWidget {
@@ -122,15 +123,20 @@ class _DoctorChatListScreenState extends State<DoctorChatListScreen> {
                   leading: CircleAvatar(
                     backgroundColor:
                         const Color(0xFF10B981).withValues(alpha: 0.15),
-                    child: Text(
-                      chat.patientName.isNotEmpty
-                          ? chat.patientName[0].toUpperCase()
-                          : 'P',
-                      style: const TextStyle(
-                        color: Color(0xFF059669),
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+                    backgroundImage: chat.patientPhotoUrl != null
+                        ? CachedNetworkImageProvider(chat.patientPhotoUrl!)
+                        : null,
+                    child: chat.patientPhotoUrl == null
+                        ? Text(
+                            chat.patientName.isNotEmpty
+                                ? chat.patientName[0].toUpperCase()
+                                : 'P',
+                            style: const TextStyle(
+                              color: Color(0xFF059669),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          )
+                        : null,
                   ),
                   title: Text(
                     chat.patientName,

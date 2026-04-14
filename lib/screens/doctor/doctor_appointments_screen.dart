@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/appointment_service.dart';
 import '../../models/appointment_model.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:ui' as ui;
 
 class DoctorAppointmentsScreen extends StatefulWidget {
@@ -157,11 +158,20 @@ class _DoctorAppointmentsScreenState extends State<DoctorAppointmentsScreen> {
             Row(
               children: [
                 CircleAvatar(
+                  radius: 20,
                   backgroundColor: accentColor.withValues(alpha: 0.1),
-                  child: Text(
-                    appointment.patientName.isNotEmpty ? appointment.patientName[0].toUpperCase() : 'P',
-                    style: TextStyle(color: accentColor, fontWeight: FontWeight.bold),
-                  ),
+                  backgroundImage: appointment.patientPhotoUrl != null
+                      ? CachedNetworkImageProvider(appointment.patientPhotoUrl!)
+                      : null,
+                  child: appointment.patientPhotoUrl == null
+                      ? Text(
+                          appointment.patientName.isNotEmpty
+                              ? appointment.patientName[0].toUpperCase()
+                              : 'P',
+                          style: TextStyle(
+                              color: accentColor, fontWeight: FontWeight.bold),
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(

@@ -82,6 +82,7 @@ class AuthService {
     required String email,
     required String name,
     required String phoneNumber,
+    String? photoUrl,
     String role = 'patient',
   }) async {
     final userId = uid ?? _auth.currentUser?.uid;
@@ -91,6 +92,7 @@ class AuthService {
       'email': email,
       'name': name,
       'phoneNumber': phoneNumber,
+      'photoUrl': photoUrl,
       'role': role,
       'updatedAt': FieldValue.serverTimestamp(),
       // Only set createdAt if it doesn't exist

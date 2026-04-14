@@ -17,6 +17,7 @@ import 'package:shimmer/shimmer.dart';
 import '../services/chat_service.dart';
 
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/appointment_model.dart' as model;
 import '../services/appointment_service.dart';
 
@@ -63,13 +64,42 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
   }
 
   Widget _buildDoctorImage(String imagePath, String gender) {
-    if (imagePath.isNotEmpty) {
+    if (imagePath.isEmpty) {
+      return _fallbackIcon(gender);
+    }
+
+    if (imagePath.startsWith('http')) {
+      return CachedNetworkImage(
+        imageUrl: imagePath,
+        memCacheWidth: 400,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          color: Colors.grey[200],
+          child: const Center(
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+        errorWidget: (context, url, error) => _fallbackIcon(gender),
+      );
+    }
+
+    if (imagePath.startsWith('assets/')) {
       return Image.asset(
         imagePath,
         fit: BoxFit.cover,
         errorBuilder: (c, o, s) => _fallbackIcon(gender),
       );
     }
+
+    // Local File fallback (useful if doctor app stores locally first or for web)
+    if (!kIsWeb && File(imagePath).existsSync()) {
+      return Image.file(
+        File(imagePath),
+        fit: BoxFit.cover,
+        errorBuilder: (c, o, s) => _fallbackIcon(gender),
+      );
+    }
+
     return _fallbackIcon(gender);
   }
 
@@ -77,17 +107,59 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
     IconData icon = gender.toLowerCase() == 'female' || gender == 'أنثى'
         ? Icons.face_3_rounded
         : Icons.face_rounded;
-    return Icon(icon, size: 60, color: const Color(0xFF0EA5E9));
+    return Container(
+      color: const Color(0xFF0EA5E9).withValues(alpha: 0.1),
+      child: Center(
+        child: Icon(icon, size: 60, color: const Color(0xFF0EA5E9)),
+      ),
+    );
+  }
+
+  Future<void> _launchURL(String url) async {
+    final Uri uri = Uri.parse(url);
+    try {
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not launch $url')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Widget _buildSocialIcon(IconData icon, Color color, String? url) {
+    if (url == null || url.isEmpty) return const SizedBox.shrink();
+    return GestureDetector(
+      onTap: () => _launchURL(url),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Icon(icon, color: color, size: 24),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final doc = widget.doctor;
+    final docMap = widget.doctor;
+    final docModel = Doctor.fromMap(docMap);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOnline =
-        (doc['isOnline'] ?? false) == true &&
-        (doc['lastSeen'] == null ||
-            DateTime.now().difference(doc['lastSeen'] as DateTime).inMinutes <
+        (docMap['isOnline'] ?? false) == true &&
+        (docMap['lastSeen'] == null ||
+            DateTime.now().difference(docMap['lastSeen'] as DateTime).inMinutes <
                 5);
 
     return Scaffold(
@@ -142,10 +214,10 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                       ),
                     ),
                     onPressed: () async {
-                      bool newStatus = await DatabaseHelper().toggleFavorite(widget.doctor['id']);
+                      bool newStatus = await DatabaseHelper().toggleFavorite(docMap['id']);
                       setState(() {
                         _isFavorite = newStatus;
-                        widget.doctor['isFavorite'] = newStatus;
+                        docMap['isFavorite'] = newStatus;
                       });
                     },
                   ),
@@ -216,7 +288,7 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                                     ],
                                   ),
                                   child: Hero(
-                                    tag: doc['id'] ?? doc['name'],
+                                    tag: docMap['id'] ?? docModel.name,
                                     child: Container(
                                       decoration: const BoxDecoration(
                                         shape: BoxShape.circle,
@@ -227,8 +299,8 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                                           100,
                                         ),
                                         child: _buildDoctorImage(
-                                          doc['image'] ?? '',
-                                          doc['gender'] ?? '',
+                                          docModel.image,
+                                          docModel.gender,
                                         ),
                                       ),
                                     ),
@@ -254,13 +326,17 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                               ],
                             ),
                             const SizedBox(height: 16),
-                            Text(
-                              doc['name'] ?? '',
-                              style: const TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                                letterSpacing: -0.5,
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              child: Text(
+                                isArabic ? docModel.nameAr : docModel.name,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  letterSpacing: -0.5,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -274,9 +350,7 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
-                                isArabic 
-                                    ? Doctor.fromMap(doc).specialtyAr 
-                                    : Doctor.fromMap(doc).specialty,
+                                isArabic ? docModel.specialtyAr : docModel.specialty,
                                 style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
@@ -325,7 +399,7 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                             context,
                             Icons.people_alt_rounded,
                             const Color(0xFF8B5CF6),
-                            doc['patients'].toString(),
+                            docModel.patients,
                             isArabic ? 'مريض' : 'Patients',
                           ),
                           Container(
@@ -339,7 +413,7 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                             context,
                             Icons.star_rounded,
                             const Color(0xFFF59E0B),
-                            doc['rating'].toString(),
+                            docModel.rating,
                             isArabic ? 'تقييم' : 'Rating',
                           ),
                           Container(
@@ -353,7 +427,7 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                             context,
                             Icons.work_history_rounded,
                             const Color(0xFF0EA5E9),
-                            '${doc['experience']}',
+                            docModel.experience,
                             isArabic ? 'سنوات' : 'Years',
                           ),
                         ],
@@ -390,8 +464,9 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                           ],
                         ),
                         child: Text(
-                          doc['about'] ??
-                              (isArabic
+                          (isArabic ? docModel.aboutAr : docModel.about).isNotEmpty
+                              ? (isArabic ? docModel.aboutAr : docModel.about)
+                              : (isArabic
                                   ? 'لا توجد معلومات إضافية.'
                                   : 'No additional information.'),
                           style: TextStyle(
@@ -405,6 +480,32 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
+
+                      // Social Media Links
+                      if ((docModel.facebook?.isNotEmpty ?? false) ||
+                          (docModel.instagram?.isNotEmpty ?? false) ||
+                          (docModel.linkedin?.isNotEmpty ?? false) ||
+                          (docModel.twitter?.isNotEmpty ?? false)) ...[
+                        Text(
+                          isArabic ? 'تواصل مع الطبيب' : 'Connect with Doctor',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : const Color(0xFF1E293B),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildSocialIcon(Icons.facebook, const Color(0xFF1877F2), docModel.facebook),
+                            _buildSocialIcon(Icons.camera_alt_outlined, const Color(0xFFE4405F), docModel.instagram),
+                            _buildSocialIcon(Icons.link, const Color(0xFF0A66C2), docModel.linkedin),
+                            _buildSocialIcon(Icons.alternate_email, Colors.black, docModel.twitter),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                      ],
 
                       // Working Hours
                       Text(
@@ -454,7 +555,7 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                             const SizedBox(width: 16),
                             Expanded(
                               child: Text(
-                                doc['workingHours'] ?? '',
+                                docModel.workingHours,
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -525,7 +626,7 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                '${doc['price'] ?? 0}',
+                                docModel.price.isEmpty ? '0' : docModel.price,
                                 style: TextStyle(
                                   fontSize: 26,
                                   fontWeight: FontWeight.w900,
@@ -562,24 +663,26 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                             // 1. Get Chat ID (this might already exist or create a new doc) 
                             // This takes roundtrip time, but we don't need to load the full chat doc again with getChat.
                             final chatId = await chatService.createOrGetChat(
-                              doctorId: doc['id'] ?? '',
-                              doctorUserId: doc['userId'] ?? doc['id'] ?? '', // Added doctorUserId
-                              doctorName: doc['name'] ?? '',
+                              doctorId: docModel.id,
+                              doctorUserId: docModel.userId,
+                              doctorName: isArabic ? docModel.nameAr : docModel.name,
                               patientId: patientId,
                               patientName: patientName,
+                              doctorSpecialty: docModel.specialty,
+                              doctorSpecialtyAr: docModel.specialtyAr,
                             );
-
-
 
                             if (context.mounted) {
                               // 2. Instead of loading the chat from firestore, create the object locally to save time
                               final chatInfo = Chat(
                                 id: chatId,
-                                doctorId: doc['id'] ?? '',
-                                doctorUserId: doc['userId'] ?? doc['id'] ?? '', // Added doctorUserId
-                                doctorName: doc['name'] ?? '',
+                                doctorId: docModel.id,
+                                doctorUserId: docModel.userId,
+                                doctorName: isArabic ? docModel.nameAr : docModel.name,
                                 patientId: patientId,
                                 patientName: patientName,
+                                doctorSpecialty: docModel.specialty,
+                                doctorSpecialtyAr: docModel.specialtyAr,
                                 createdAt: DateTime.now(),
                               );
 
@@ -918,25 +1021,7 @@ class _CategoryDoctorsScreenState extends State<CategoryDoctorsScreen> {
               context,
               MaterialPageRoute(
                 builder: (context) => DoctorDetailsScreen(
-                  doctor: {
-                    'id': doc.id,
-                    'name': isArabic ? doc.nameAr : doc.name,
-                    'specialty': isArabic ? doc.specialtyAr : doc.specialty,
-                    'rating': doc.rating,
-                    'image': doc.image,
-                    'about': isArabic ? doc.aboutAr : doc.about,
-                    'gender': doc.gender,
-                    'color': Colors.blue,
-                    'isFavorite': doc.isFavorite,
-                    'patients': doc.patients,
-                    'experience': doc.experience,
-                    'isOnline': doc.isOnline,
-                    'lastSeen': doc.lastSeen,
-                    'price': doc.price,
-                    'phone': doc.phone,
-                    'workingHours': doc.workingHours,
-                    'schedule': doc.schedule,
-                  },
+                  doctor: doc.toMap(),
                 ),
               ),
             );
@@ -1210,24 +1295,10 @@ class _CategoryDoctorsScreenState extends State<CategoryDoctorsScreen> {
 
   Widget _buildDoctorImage(String imagePath, String gender) {
     if (imagePath.isEmpty) {
-      return Icon(
-        gender == 'Female' ? Icons.female : Icons.male,
-        size: 40,
-        color: Colors.grey,
-      );
+      return _fallbackIcon(gender, size: 40);
     }
-    if (imagePath.startsWith('assets/')) {
-      return Image.asset(
-        imagePath,
-        fit: BoxFit.cover,
-        alignment: Alignment.topCenter,
-        errorBuilder: (context, error, stackTrace) => Icon(
-          gender == 'Female' ? Icons.female : Icons.male,
-          size: 40,
-          color: Colors.grey,
-        ),
-      );
-    } else if (imagePath.startsWith('http')) {
+
+    if (imagePath.startsWith('http')) {
       return CachedNetworkImage(
         imageUrl: imagePath,
         memCacheWidth: 200,
@@ -1240,31 +1311,43 @@ class _CategoryDoctorsScreenState extends State<CategoryDoctorsScreen> {
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
         ),
-        errorWidget: (context, url, error) => Icon(
-          gender == 'Female' ? Icons.female : Icons.male,
-          size: 40,
-          color: Colors.grey,
-        ),
+        errorWidget: (context, url, error) => _fallbackIcon(gender, size: 40),
       );
-    } else if (!kIsWeb) {
-      // Local File
+    }
+
+    if (imagePath.startsWith('assets/')) {
+      return Image.asset(
+        imagePath,
+        fit: BoxFit.cover,
+        alignment: Alignment.topCenter,
+        errorBuilder: (context, error, stackTrace) =>
+            _fallbackIcon(gender, size: 40),
+      );
+    }
+
+    if (!kIsWeb && File(imagePath).existsSync()) {
       return Image.file(
         File(imagePath),
         fit: BoxFit.cover,
         alignment: Alignment.topCenter,
-        errorBuilder: (context, error, stackTrace) => Icon(
-          gender == 'Female' ? Icons.face_3_rounded : Icons.face_rounded,
-          size: 40,
-          color: Colors.white,
-        ),
-      );
-    } else {
-      return Icon(
-        gender == 'Female' ? Icons.face_3_rounded : Icons.face_rounded,
-        size: 40,
-        color: Colors.white,
+        errorBuilder: (context, error, stackTrace) =>
+            _fallbackIcon(gender, size: 40),
       );
     }
+
+    return _fallbackIcon(gender, size: 40);
+  }
+
+  Widget _fallbackIcon(String gender, {double size = 60}) {
+    IconData icon = gender.toLowerCase() == 'female' || gender == 'أنثى'
+        ? Icons.face_3_rounded
+        : Icons.face_rounded;
+    return Container(
+      color: Colors.grey.withValues(alpha: 0.1),
+      child: Center(
+        child: Icon(icon, size: size, color: Colors.grey[400]),
+      ),
+    );
   }
 
   Widget _buildShimmerCard(BuildContext context) {
@@ -1431,7 +1514,10 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
     int startMin = 0;
     int endHour = 17;
     int endMin = 0;
+    // Each slot step = session duration + break after it
     int slotMin = (daySch['slotDuration'] as num?)?.toInt() ?? 30;
+    int breakMin = (daySch['breakDuration'] as num?)?.toInt() ?? 0;
+    int stepMin = slotMin + breakMin; // total time per slot including break
     
     final startParts = (daySch['startTime'] as String? ?? '09:00').split(':');
     final endParts = (daySch['endTime'] as String? ?? '17:00').split(':');
@@ -1449,13 +1535,19 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
     int curHour = startHour;
     int curMin = startMin;
     
-    while (curHour < endHour || (curHour == endHour && curMin < endMin)) {
+    // Generate slots: each slot starts at curHour:curMin and lasts slotMin.
+    // We only add a slot if the session itself (not the break) fits before endTime.
+    while (true) {
+      // Check if the START of this slot is before endTime
+      if (curHour > endHour || (curHour == endHour && curMin >= endMin)) break;
+
       final period = curHour >= 12 ? 'PM' : 'AM';
       final displayHour = curHour > 12 ? curHour - 12 : (curHour == 0 ? 12 : curHour);
       final minStr = curMin.toString().padLeft(2, '0');
       slots.add('$displayHour:$minStr $period');
       
-      curMin += slotMin;
+      // Advance by full step (session + break)
+      curMin += stepMin;
       curHour += curMin ~/ 60;
       curMin = curMin % 60;
     }

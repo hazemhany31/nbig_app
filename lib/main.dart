@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +10,7 @@ import 'firebase_options.dart';
 import 'screens/auth/auth_check.dart';
 import 'services/notification_service.dart';
 import 'services/push_notification_service.dart';
+import 'services/chat_notification_listener.dart';
 
 
 void main() async {
@@ -46,15 +48,16 @@ void main() async {
   if (!kIsWeb) {
     await NotificationService().init();
     await PushNotificationService().initialize();
+
+    // ابدأ/أوقف الاستماع لإشعارات الشات بناءً على حالة الـ auth
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null) {
+        ChatNotificationListener().startListening();
+      } else {
+        ChatNotificationListener().stopListening();
+      }
+    });
   }
-
-  // === حذف الدكاترة القديمة (تم التعطيل للاعتماد على Firestore) ===
-  // await DatabaseHelper().recreateDoctorsTable();
-
-  // === تم تعطيل الإضافة التلقائية للدكاترة للاعتماد على البيانات الفورية من Firestore ===
-  /*
-  await DatabaseHelper().insertDoctor({ ... });
-  */
 
   runApp(
     // تغليف التطبيق بـ ProviderScope لعمل Riverpod
@@ -177,7 +180,7 @@ class _DoctorAppState extends State<DoctorApp> {
         ),
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
-            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
             TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           },
         ),
@@ -247,7 +250,7 @@ class _DoctorAppState extends State<DoctorApp> {
         ),
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
-            TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
             TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           },
         ),

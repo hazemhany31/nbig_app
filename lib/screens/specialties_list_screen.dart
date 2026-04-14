@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'sub_screens.dart'; // For CategoryDoctorsScreen
 import '../language_config.dart';
+import '../services/hybrid_doctor_service.dart';
+import '../services/doctor_service.dart';
 
 class Specialty {
   final String nameEn;
@@ -18,8 +20,17 @@ class Specialty {
   });
 }
 
-class SpecialtiesListScreen extends StatelessWidget {
+class SpecialtiesListScreen extends StatefulWidget {
   const SpecialtiesListScreen({super.key});
+
+  @override
+  State<SpecialtiesListScreen> createState() => _SpecialtiesListScreenState();
+}
+
+class _SpecialtiesListScreenState extends State<SpecialtiesListScreen> {
+  final HybridDoctorService _doctorService = HybridDoctorService();
+  List<Specialty> _activeSpecialties = [];
+  bool _isLoading = true;
 
   static const List<Specialty> specialties = [
     Specialty(
@@ -137,6 +148,46 @@ class SpecialtiesListScreen extends StatelessWidget {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadActiveSpecialties();
+  }
+
+  Future<void> _loadActiveSpecialties() async {
+    try {
+      // 1. Fetch all doctors
+      final doctors = await _doctorService.getDoctors();
+      
+      // 2. Filter specialties
+      final active = specialties.where((spec) {
+        final keywords = DoctorService.categoryKeywords[spec.dbKeyword] ?? [spec.dbKeyword];
+        return doctors.any((doc) {
+          final docSpec = doc.specialty.toLowerCase();
+          final docSpecAr = doc.specialtyAr.toLowerCase();
+          return keywords.any((k) {
+            final kLower = k.toLowerCase();
+            return docSpec.contains(kLower) || docSpecAr.contains(kLower);
+          });
+        });
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _activeSpecialties = active;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _activeSpecialties = [];
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -152,20 +203,22 @@ class SpecialtiesListScreen extends StatelessWidget {
         elevation: 0,
         foregroundColor: isDark ? Colors.white : Colors.black,
       ),
-      body: GridView.builder(
-        padding: const EdgeInsets.all(20),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 0.95,
-        ),
-        itemCount: specialties.length,
-        itemBuilder: (context, index) {
-          final specialty = specialties[index];
-          return _buildSpecialtyCard(context, specialty, isDark);
-        },
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)))
+          : GridView.builder(
+              padding: const EdgeInsets.all(20),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.95,
+              ),
+              itemCount: _activeSpecialties.length,
+              itemBuilder: (context, index) {
+                final specialty = _activeSpecialties[index];
+                return _buildSpecialtyCard(context, specialty, isDark);
+              },
+            ),
     );
   }
 
@@ -217,7 +270,7 @@ class SpecialtiesListScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
+                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(

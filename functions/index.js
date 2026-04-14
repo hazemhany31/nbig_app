@@ -1,4 +1,5 @@
-const {onSchedule} = require("firebase-functions/v2/scheduler");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 const { logger } = require("firebase-functions");
 
@@ -96,5 +97,77 @@ exports.sendConfirmationReminder = onSchedule("every 5 minutes", async (event) =
     }
   } catch (error) {
     logger.error('Error sending confirmation reminders:', error);
+  }
+});
+
+/**
+ * Triggers when a user document is created or updated.
+ * Syncs users with role 'doctor' to the 'doctors' collection.
+ */
+exports.syncDoctorProfile = onDocumentWritten("users/{userId}", async (event) => {
+  const userId = event.params.userId;
+  const newData = event.data.after.data();
+  const oldData = event.data.before.data();
+
+  // If the document was deleted, we optionally could mark doctor as inactive
+  if (!newData) {
+    logger.info(`User ${userId} deleted. Skipping sync.`);
+    return;
+  }
+
+  // Check if role is 'doctor'
+  if (newData.role !== 'doctor') {
+    // If it was a doctor and role changed, we might want to handle that, 
+    // but for now we just focus on ensuring doctors exist.
+    return;
+  }
+
+  const doctorRef = admin.firestore().collection('doctors').doc(userId);
+  
+  try {
+    const doctorDoc = await doctorRef.get();
+    
+    const doctorData = {
+      userId: userId,
+      name: newData.name || 'دكتور جديد',
+      nameAr: newData.name || 'دكتور جديد',
+      email: newData.email || '',
+      phoneNumber: newData.phoneNumber || '',
+      photoUrl: newData.photoUrl || '',
+      image: newData.photoUrl || '',
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (!doctorDoc.exists) {
+      // Create new doctor profile with defaults
+      logger.info(`Creating new doctor profile for ${userId}`);
+      await doctorRef.set({
+        ...doctorData,
+        specialty: 'General',
+        specialtyAr: 'عام',
+        rating: "4.8",
+        reviews: 0,
+        patients: "0",
+        experience: "1",
+        about: "لا توجد تفاصيل حالياً.",
+        aboutAr: "لا توجد تفاصيل حالياً.",
+        isActive: true,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      // Update existing profile (basic info only to avoid overwriting specialty/bio)
+      logger.info(`Updating doctor profile for ${userId}`);
+      await doctorRef.update({
+        name: doctorData.name,
+        nameAr: doctorData.nameAr,
+        email: doctorData.email,
+        phoneNumber: doctorData.phoneNumber,
+        photoUrl: doctorData.photoUrl,
+        image: doctorData.image,
+        updatedAt: doctorData.updatedAt,
+      });
+    }
+  } catch (error) {
+    logger.error(`Error syncing doctor profile for ${userId}:`, error);
   }
 });

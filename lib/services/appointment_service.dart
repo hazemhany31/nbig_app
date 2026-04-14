@@ -37,6 +37,17 @@ class AppointmentService {
       // Calculate Expiration time
       DateTime expiresAtDate = DateTime.now().add(const Duration(hours: 1));
       
+      // 1.5 Fetch current patient details (including photoUrl)
+      String? patientPhotoUrl;
+      try {
+        final patientDoc = await _firestore.collection('users').doc(patientId).get();
+        if (patientDoc.exists) {
+          patientPhotoUrl = patientDoc.data()?['photoUrl'];
+        }
+      } catch (e) {
+        debugPrint('⚠️ Failed to fetch patient photoUrl: $e');
+      }
+
       final appointmentData = {
         'doctorId': doctorId,
         'doctorUserId': doctorUserId.isNotEmpty ? doctorUserId : doctorId,
@@ -44,6 +55,7 @@ class AppointmentService {
         'specialty': specialty,
         'patientId': patientId,
         'patientName': patientName,
+        'patientPhotoUrl': patientPhotoUrl, // Include photoUrl
         'date': dateStr,
         'time': time,
         'dateTime': Timestamp.fromDate(appointmentDateTime),

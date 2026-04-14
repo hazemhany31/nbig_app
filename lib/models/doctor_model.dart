@@ -20,6 +20,10 @@ class Doctor {
   final String phone; // رقم الهاتف
   final String workingHours; // ساعات العمل
   final Map<String, dynamic> schedule; // جدول المواعيد المتاح
+  final String? facebook;
+  final String? instagram;
+  final String? linkedin;
+  final String? twitter;
 
   static const Map<String, String> _specializationTranslations = {
     'Internal Medicine': 'باطنة',
@@ -68,6 +72,10 @@ class Doctor {
     this.phone = '',
     this.workingHours = '',
     this.schedule = const {},
+    this.facebook,
+    this.instagram,
+    this.linkedin,
+    this.twitter,
   });
 
   factory Doctor.fromMap(Map<String, dynamic> json) {
@@ -99,12 +107,14 @@ class Doctor {
       image: json['image']?.toString() ?? json['photoUrl']?.toString() ?? '',
       gender: json['gender']?.toString() ?? 'Male',
       about: _stripHtml(
-        json['introduction']?.toString() ??
+        json['about']?.toString() ??
+            json['introduction']?.toString() ??
             json['bio']?.toString() ??
             'No details.',
       ),
       aboutAr: _stripHtml(
-        json['arIntroduction']?.toString() ??
+        json['aboutAr']?.toString() ??
+            json['arIntroduction']?.toString() ??
             json['bio']?.toString() ??
             'لا توجد تفاصيل.',
       ),
@@ -150,6 +160,10 @@ class Doctor {
           ? (json['clinicInfo'] as Map)['workingHours'].toString()
           : json['workingHours']?.toString() ?? '',
       schedule: (json['schedule'] as Map?)?.cast<String, dynamic>() ?? {},
+      facebook: json['facebook']?.toString(),
+      instagram: json['instagram']?.toString(),
+      linkedin: json['linkedin']?.toString(),
+      twitter: json['twitter']?.toString(),
     );
   }
 
@@ -167,6 +181,8 @@ class Doctor {
       'gender': gender,
       'introduction': about,
       'arIntroduction': aboutAr,
+      'about': about,
+      'aboutAr': aboutAr,
       'reviews': reviews,
       'patients': patients,
       'experience': experience,
@@ -177,6 +193,10 @@ class Doctor {
       'phone': phone,
       'workingHours': workingHours,
       'schedule': schedule,
+      'facebook': facebook,
+      'instagram': instagram,
+      'linkedin': linkedin,
+      'twitter': twitter,
     };
   }
 

@@ -13,6 +13,10 @@ class Chat {
   final int unreadCountDoctor;
   final int unreadCountPatient;
   final DateTime createdAt;
+  final String? patientPhotoUrl;
+  final String? doctorPhotoUrl;
+  final String? doctorSpecialty;
+  final String? doctorSpecialtyAr;
 
   Chat({
     required this.id,
@@ -26,6 +30,10 @@ class Chat {
     this.unreadCountDoctor = 0,
     this.unreadCountPatient = 0,
     required this.createdAt,
+    this.patientPhotoUrl,
+    this.doctorPhotoUrl,
+    this.doctorSpecialty,
+    this.doctorSpecialtyAr,
   });
 
   /// إنشاء Chat من Firestore DocumentSnapshot
@@ -48,6 +56,10 @@ class Chat {
       unreadCountDoctor: map['unreadCountDoctor'] ?? 0,
       unreadCountPatient: map['unreadCountPatient'] ?? 0,
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      patientPhotoUrl: map['patientPhotoUrl'],
+      doctorPhotoUrl: map['doctorPhotoUrl'],
+      doctorSpecialty: map['doctorSpecialty'],
+      doctorSpecialtyAr: map['doctorSpecialtyAr'],
     );
   }
 
@@ -66,6 +78,10 @@ class Chat {
       'unreadCountDoctor': unreadCountDoctor,
       'unreadCountPatient': unreadCountPatient,
       'createdAt': Timestamp.fromDate(createdAt),
+      'patientPhotoUrl': patientPhotoUrl,
+      'doctorPhotoUrl': doctorPhotoUrl,
+      'doctorSpecialty': doctorSpecialty,
+      'doctorSpecialtyAr': doctorSpecialtyAr,
     };
   }
 
@@ -81,6 +97,10 @@ class Chat {
     int? unreadCountDoctor,
     int? unreadCountPatient,
     DateTime? createdAt,
+    String? patientPhotoUrl,
+    String? doctorPhotoUrl,
+    String? doctorSpecialty,
+    String? doctorSpecialtyAr,
   }) {
     return Chat(
       id: id ?? this.id,
@@ -94,6 +114,10 @@ class Chat {
       unreadCountDoctor: unreadCountDoctor ?? this.unreadCountDoctor,
       unreadCountPatient: unreadCountPatient ?? this.unreadCountPatient,
       createdAt: createdAt ?? this.createdAt,
+      patientPhotoUrl: patientPhotoUrl ?? this.patientPhotoUrl,
+      doctorPhotoUrl: doctorPhotoUrl ?? this.doctorPhotoUrl,
+      doctorSpecialty: doctorSpecialty ?? this.doctorSpecialty,
+      doctorSpecialtyAr: doctorSpecialtyAr ?? this.doctorSpecialtyAr,
     );
   }
 }

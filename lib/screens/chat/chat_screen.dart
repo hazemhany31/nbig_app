@@ -2,12 +2,14 @@
 import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../models/chat.dart';
 import '../../models/message.dart';
 import '../../services/chat_service.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 /// شاشة المحادثة — مريض مع طبيب، أو [isDoctorView] للطبيب مع المريض (نفس مستند Firestore)
 class ChatScreen extends StatefulWidget {
@@ -33,6 +35,9 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isSendingImage = false;
   late Stream<List<Message>> _messagesStream;
 
+  // Peer info
+  String? _peerPhotoUrl;
+
   // Anti-spam variables
   DateTime? _lastMessageTime;
   int _rapidMessageCount = 0;
@@ -40,11 +45,46 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _peerPhotoUrl = widget.isDoctorView
+        ? widget.chat.patientPhotoUrl
+        : widget.chat.doctorPhotoUrl;
+    _loadPeerPhoto();
     _chatService.markMessagesAsRead(
       widget.chat.id,
       widget.isDoctorView ? 'doctor' : 'patient',
     );
     _messagesStream = _chatService.getChatMessages(widget.chat.id);
+  }
+
+  Future<void> _loadPeerPhoto() async {
+    try {
+      if (widget.isDoctorView) {
+        // Doctor is viewing patient photo
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.chat.patientId)
+            .get();
+        if (doc.exists && mounted) {
+          setState(() {
+            _peerPhotoUrl = doc.data()?['photoUrl'];
+          });
+        }
+      } else {
+        // Patient is viewing doctor photo
+        final doc = await FirebaseFirestore.instance
+            .collection('doctors')
+            .doc(widget.chat.doctorId)
+            .get();
+        if (doc.exists && mounted) {
+          final data = doc.data();
+          setState(() {
+            _peerPhotoUrl = (data?['image'] ?? data?['photoUrl'])?.toString();
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error loading peer photo: $e');
+    }
   }
 
   String get _displayNameMe {
@@ -377,18 +417,46 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                       ],
                     ),
-                    child: Center(
-                      child: Text(
-                        _peerDisplayName.isNotEmpty
-                            ? _peerDisplayName[0].toUpperCase()
-                            : (widget.isDoctorView ? 'م' : 'د'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
+                    child: _peerPhotoUrl != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: CachedNetworkImage(
+                              imageUrl: _peerPhotoUrl!,
+                              fit: BoxFit.cover,
+                              width: 38,
+                              height: 38,
+                              placeholder: (context, url) => const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => Center(
+                                child: Text(
+                                  _peerDisplayName.isNotEmpty
+                                      ? _peerDisplayName[0].toUpperCase()
+                                      : (widget.isDoctorView ? 'P' : 'D'),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        : Center(
+                            child: Text(
+                              _peerDisplayName.isNotEmpty
+                                  ? _peerDisplayName[0].toUpperCase()
+                                  : (widget.isDoctorView ? 'م' : 'د'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 12),
                   Text(

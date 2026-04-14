@@ -32,6 +32,8 @@ import 'specialties_list_screen.dart';
 import 'blog_screens.dart';
 import '../services/app_notification_service.dart';
 import '../services/medication_tracking_service.dart';
+import '../services/hybrid_doctor_service.dart';
+import '../services/doctor_service.dart';
 
 import '../language_config.dart';
 import '../widgets/shimmer_loading.dart';
@@ -79,14 +81,36 @@ class _MainLayoutState extends State<MainLayout> {
     });
   }
 
-  // دالة تحميل آمنة (بتتأكد إن الملف موجود)
+  // دالة تحميل آمنة (بتتأكد إن الملف موجود أو بتجيب الرابط من Firestore)
   Future<void> _loadProfileImage() async {
     final prefs = await SharedPreferences.getInstance();
     String? path = prefs.getString('profile_image');
 
-    // لو المسار موجود بس الملف مش موجود (اتمسح)، نعتبره null
-    if (!kIsWeb && path != null && !File(path).existsSync()) {
-      path = null;
+    // 1. لو المسار محلي، نتأكد إنه موجود
+    if (path != null && !path.startsWith('http')) {
+      if (!kIsWeb && !File(path).existsSync()) {
+        path = null;
+      }
+    }
+
+    // 2. تحديث من Firestore (لضمان المزامنة بين الأجهزة)
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists) {
+          final firestorePhoto = doc.data()?['photoUrl'];
+          if (firestorePhoto != null && firestorePhoto.isNotEmpty) {
+            path = firestorePhoto;
+            await prefs.setString('profile_image', firestorePhoto);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error syncing profile image from Firestore: $e');
     }
 
     if (!mounted) return;
@@ -103,6 +127,17 @@ class _MainLayoutState extends State<MainLayout> {
       _homeKey = UniqueKey();
       _scheduleKey = UniqueKey();
     });
+
+    // حفظ اللغة في Firestore عشان الدكتور يبعت الإشعارات بالغة الصح
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .set({'language': isArabic ? 'ar' : 'en'}, SetOptions(merge: true));
+      }
+    } catch (_) {}
   }
 
   void _updateName(String newName) {
@@ -154,7 +189,10 @@ class _MainLayoutState extends State<MainLayout> {
     return Directionality(
       textDirection: isArabic ? ui.TextDirection.rtl : ui.TextDirection.ltr,
       child: Scaffold(
-        body: pages[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: pages,
+      ),
         bottomNavigationBar: ClipRect(
           child: BackdropFilter(
             filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
@@ -294,10 +332,162 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _bannerIndex = 0;
+  List<Map<String, dynamic>> _activeCategories = [];
+  bool _isCategoriesLoading = true;
+
+  final List<Map<String, dynamic>> _allCategories = [
+    {
+      'icon': Icons.monitor_heart_outlined,
+      'labelEn': 'Cardiology',
+      'labelAr': 'قلب',
+      'dbKeyword': 'Cardio',
+      'color': const Color(0xFFEF4444),
+    },
+    {
+      'icon': Icons.face,
+      'labelEn': 'Dermatology',
+      'labelAr': 'جلدية',
+      'dbKeyword': 'Dermatology',
+      'color': const Color(0xFFF59E0B),
+    },
+    {
+      'icon': Icons.psychology,
+      'labelEn': 'Neurology',
+      'labelAr': 'مخ وأعصاب',
+      'dbKeyword': 'Neurology',
+      'color': const Color(0xFF0EA5E9),
+    },
+    {
+      'icon': Icons.accessibility_new,
+      'labelEn': 'Orthopedics',
+      'labelAr': 'عظام',
+      'dbKeyword': 'Orthopedics',
+      'color': const Color(0xFF10B981),
+    },
+    {
+      'icon': Icons.baby_changing_station,
+      'labelEn': 'Pediatrics',
+      'labelAr': 'أطفال',
+      'dbKeyword': 'Pediatric',
+      'color': const Color(0xFFF97316),
+    },
+    {
+      'icon': Icons.medical_services_rounded,
+      'labelEn': 'Dentistry',
+      'labelAr': 'أسنان',
+      'dbKeyword': 'Dent',
+      'color': const Color(0xFF0EA5E9),
+    },
+    {
+      'icon': Icons.remove_red_eye_rounded,
+      'labelEn': 'Ophthalmology',
+      'labelAr': 'عيون',
+      'dbKeyword': 'Ophthalmology',
+      'color': const Color(0xFF8B5CF6),
+    },
+    {
+      'icon': Icons.medical_information_outlined,
+      'labelEn': 'Internal Medicine',
+      'labelAr': 'باطنة',
+      'dbKeyword': 'Internal Medicine',
+      'color': const Color(0xFF3B82F6),
+    },
+    {
+      'icon': Icons.pregnant_woman_rounded,
+      'labelEn': 'Gynecology',
+      'labelAr': 'نساء وتوليد',
+      'dbKeyword': 'Obstetrics & Gynecology',
+      'color': const Color(0xFFEC4899),
+    },
+    {
+      'icon': Icons.hearing_rounded,
+      'labelEn': 'ENT',
+      'labelAr': 'أنف وأذن',
+      'dbKeyword': 'ENT',
+      'color': const Color(0xFFF59E0B),
+    },
+    {
+      'icon': Icons.psychology_alt_rounded,
+      'labelEn': 'Psychiatry',
+      'labelAr': 'نفسية',
+      'dbKeyword': 'Psychiatry',
+      'color': const Color(0xFF8B5CF6),
+    },
+    {
+      'icon': Icons.content_cut_rounded,
+      'labelEn': 'General Surgery',
+      'labelAr': 'جراحة عامة',
+      'dbKeyword': 'General Surgery',
+      'color': const Color(0xFF10B981),
+    },
+    {
+      'icon': Icons.water_drop_outlined,
+      'labelEn': 'Urology',
+      'labelAr': 'مسالك بولية',
+      'dbKeyword': 'Urology',
+      'color': const Color(0xFF3B82F6),
+    },
+    {
+      'icon': Icons.directions_walk_rounded,
+      'labelEn': 'Physical Therapy',
+      'labelAr': 'علاج طبيعي',
+      'dbKeyword': 'Physical Therapy',
+      'color': const Color(0xFF10B981),
+    },
+    {
+      'icon': Icons.settings_overscan_rounded,
+      'labelEn': 'Radiology',
+      'labelAr': 'أشعة',
+      'dbKeyword': 'Radiology',
+      'color': const Color(0xFF6366F1),
+    },
+    {
+      'icon': Icons.restaurant_menu_rounded,
+      'labelEn': 'Nutrition',
+      'labelAr': 'تغذية',
+      'dbKeyword': 'Nutrition',
+      'color': const Color(0xFFF97316),
+    },
+  ];
 
   @override
   void initState() {
     super.initState();
+    _loadActiveCategories();
+  }
+
+  Future<void> _loadActiveCategories() async {
+    try {
+      final HybridDoctorService doctorService = HybridDoctorService();
+      final doctors = await doctorService.getDoctors();
+
+      // فلترة بسيطة وسريعة لوجود الـ cache
+      final active = _allCategories.where((cat) {
+        final keywords = DoctorService.categoryKeywords[cat['dbKeyword']] ?? [cat['dbKeyword']];
+        return doctors.any((doc) {
+          final docSpec = doc.specialty.toLowerCase();
+          final docSpecAr = doc.specialtyAr.toLowerCase();
+          return keywords.any((k) {
+            final kLower = k.toLowerCase();
+            return docSpec.contains(kLower) || docSpecAr.contains(kLower);
+          });
+        });
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _activeCategories = active;
+          _isCategoriesLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _activeCategories = [];
+          _isCategoriesLoading = false;
+        });
+      }
+    }
   }
 
   String _getGreetingText() {
@@ -410,15 +600,21 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             child: CircleAvatar(
                               radius: 24,
-                              backgroundImage:
-                                  (!kIsWeb &&
-                                      widget.profileImage != null &&
-                                      File(widget.profileImage!).existsSync())
-                                  ? FileImage(File(widget.profileImage!))
-                                        as ImageProvider
-                                  : const AssetImage(
-                                      'assets/images/doctor_big_preview.png',
-                                    ),
+                              backgroundColor: Colors.transparent,
+                              backgroundImage: (widget.profileImage != null &&
+                                      widget.profileImage!.startsWith('http'))
+                                  ? CachedNetworkImageProvider(
+                                      widget.profileImage!,
+                                    )
+                                  : (!kIsWeb &&
+                                          widget.profileImage != null &&
+                                          File(widget.profileImage!)
+                                              .existsSync())
+                                      ? FileImage(File(widget.profileImage!))
+                                          as ImageProvider
+                                      : const AssetImage(
+                                          'assets/images/doctor_big_preview.png',
+                                        ),
                             ),
                           ),
                         ),
@@ -550,7 +746,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 20),
 
                     // === Banner Slider ===
-                    _buildBannerSlider(),
+                    RepaintBoundary(
+                      child: _buildBannerSlider(),
+                    ),
                     const SizedBox(height: 30),
 
                     // === Departments (Categories) ===
@@ -603,69 +801,44 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 15),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildCategoryItem(
-                            context,
-                            Icons.grid_view_rounded,
-                            isArabic ? 'الكل' : 'All',
-                            'All',
-                            const Color(0xFF10B981),
-                          ),
-                          _buildCategoryItem(
-                            context,
-                            Icons.monitor_heart_outlined,
-                            isArabic ? 'قلب' : 'Cardiology',
-                            'Cardio',
-                            const Color(0xFFEF4444),
-                          ),
-                          _buildCategoryItem(
-                            context,
-                            Icons.face,
-                            isArabic ? 'جلدية' : 'Dermatology',
-                            'Dermatology',
-                            const Color(0xFFF59E0B),
-                          ),
-                          _buildCategoryItem(
-                            context,
-                            Icons.psychology,
-                            isArabic ? 'مخ وأعصاب' : 'Neurology',
-                            'Neurology',
-                            const Color(0xFF0EA5E9),
-                          ),
-                          _buildCategoryItem(
-                            context,
-                            Icons.accessibility_new,
-                            isArabic ? 'عظام' : 'Orthopedics',
-                            'Orthopedics',
-                            const Color(0xFF10B981),
-                          ),
-                          _buildCategoryItem(
-                            context,
-                            Icons.baby_changing_station,
-                            isArabic ? 'أطفال' : 'Pediatrics',
-                            'Pediatric',
-                            const Color(0xFFF97316),
-                          ),
-                          _buildCategoryItem(
-                            context,
-                            Icons.medical_services_rounded,
-                            isArabic ? 'أسنان' : 'Dentistry',
-                            'Dent',
-                            const Color(0xFF0EA5E9),
-                          ),
-                          _buildCategoryItem(
-                            context,
-                            Icons.remove_red_eye_rounded,
-                            isArabic ? 'عيون' : 'Ophthalmology',
-                            'Ophthalmology',
-                            const Color(0xFF8B5CF6),
-                          ),
-                        ],
+                    RepaintBoundary(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildCategoryItem(
+                              context,
+                              Icons.grid_view_rounded,
+                              isArabic ? 'الكل' : 'All',
+                              'All',
+                              const Color(0xFF10B981),
+                            ),
+                            if (_isCategoriesLoading)
+                              ...List.generate(
+                                5,
+                                (index) => Container(
+                                  width: 88,
+                                  height: 100,
+                                  margin: const EdgeInsets.only(right: 14),
+                                  decoration: BoxDecoration(
+                                    color: widget.isDark
+                                        ? const Color(0xFF1E293B)
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(22),
+                                  ),
+                                ),
+                              )
+                            else
+                              ..._activeCategories.map((cat) => _buildCategoryItem(
+                                    context,
+                                    cat['icon'],
+                                    isArabic ? cat['labelAr'] : cat['labelEn'],
+                                    cat['dbKeyword'],
+                                    cat['color'],
+                                  )),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 30),
@@ -2667,24 +2840,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  // === دالة اختيار الصورة وحفظها بشكل دائم ===
+  // === دالة اختيار الصورة وحفظها بشكل دائم ورفعها لـ Firebase ===
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      // 1. نحدد مكان دائم للحفظ (المستندات)
+    if (image == null) return;
+
+    try {
+      // 0. إظهار لودينج
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 15),
+                Text(isArabic ? "جاري تحديث الصورة..." : "Updating photo..."),
+              ],
+            ),
+            duration: const Duration(minutes: 1),
+          ),
+        );
+      }
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception("User not logged in");
+
+      // 1. الرفع لـ Firebase Storage
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('users/${user.uid}/profile_pic.jpg');
+
+      await storageRef.putFile(File(image.path));
+      String downloadUrl = await storageRef.getDownloadURL();
+
+      // 2. تحديث Firestore
+      final authService = AuthService();
+      final userData = await authService.getUserData();
+      await authService.saveUserData(
+        email: userData?['email'] ?? user.email ?? "",
+        name: userData?['name'] ?? user.displayName ?? "",
+        phoneNumber: userData?['phoneNumber'] ?? "",
+        photoUrl: downloadUrl,
+        role: userData?['role'] ?? 'patient',
+      );
+
+      // 3. تحديث المسار المحلي (اختياري، لكن مفيد للسرعة)
       final directory = await getApplicationDocumentsDirectory();
       final String newPath = join(directory.path, 'profile_pic.jpg');
-
-      // 2. ننسخ الصورة للمكان الجديد (عشان ما تتمسحش من التمب)
       await File(image.path).copy(newPath);
 
-      // 3. نحفظ المسار الجديد الدائم
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('profile_image', newPath);
 
-      // 4. نحدث الشاشة والأب
-      widget.onImageChanged(newPath);
+      // 4. تحديث الشاشة
+      widget.onImageChanged(downloadUrl); // نمرر الـ URL الجديد بدلاً من المسار المحلي
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isArabic ? "تم تحديث الصورة بنجاح ✅" : "Photo updated successfully ✅",
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isArabic ? "فشل التحديث: $e" : "Update failed: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -3167,15 +3406,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           child: CircleAvatar(
                             radius: 56,
-                            backgroundImage:
-                                (widget.profileImage != null &&
-                                    !kIsWeb &&
-                                    File(widget.profileImage!).existsSync())
-                                ? FileImage(File(widget.profileImage!))
-                                      as ImageProvider
-                                : const AssetImage(
-                                    'assets/images/doctor_big_preview.png',
-                                  ),
+                            backgroundColor: Colors.transparent,
+                            backgroundImage: (widget.profileImage != null &&
+                                    widget.profileImage!.startsWith('http'))
+                                ? CachedNetworkImageProvider(widget.profileImage!)
+                                : (widget.profileImage != null &&
+                                        !kIsWeb &&
+                                        File(widget.profileImage!).existsSync())
+                                    ? FileImage(File(widget.profileImage!))
+                                        as ImageProvider
+                                    : const AssetImage(
+                                        'assets/images/doctor_big_preview.png',
+                                      ),
                           ),
                         ),
                       ),
@@ -4044,7 +4286,7 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
     return match != null ? int.parse(match.group(1)!) : null;
   }
 
-  List<String> _getDoseTimes(model.Prescription p) {
+  List<Map<String, String>> _getDoseTimes(model.Prescription p) {
     int intervalHours = 24;
     if (p.frequencyHours != null && p.frequencyHours! > 0) {
       intervalHours = p.frequencyHours!;
@@ -4054,7 +4296,7 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
     }
     final int times = 24 ~/ intervalHours;
     const int startHour = 9;
-    final List<String> result = [];
+    final List<Map<String, String>> result = [];
     for (int i = 0; i < times; i++) {
       final int hour = (startHour + i * intervalHours) % 24;
       final String period = hour >= 12 ? 'PM' : 'AM';
@@ -4069,7 +4311,7 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
       } else {
         label = isArabic ? 'ليلاً' : 'Night';
       }
-      result.add('$display:00 $period ($label)');
+      result.add({'time': '$display:00 $period', 'label': label});
     }
     return result;
   }
@@ -4355,25 +4597,90 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
                               ],
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              DateFormat(
-                                'dd MMM',
-                              ).format(_latestAppointment!.dateTime),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                          StreamBuilder<DocumentSnapshot>(
+                            stream: MedicationTrackingService().getTrackingStream(_latestAppointment!.id),
+                            builder: (context, snapshot) {
+                              int totalDosesCount = 0;
+                              int takenDosesCount = 0;
+                              final String dateKey = "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}";
+
+                              if (_latestAppointment!.prescriptions != null) {
+                                for (var med in _latestAppointment!.prescriptions!) {
+                                  final times = _getDoseTimes(med);
+                                  totalDosesCount += times.length;
+                                  
+                                  if (snapshot.hasData && snapshot.data!.exists) {
+                                    final data = snapshot.data!.data() as Map<String, dynamic>?;
+                                    if (data != null && data['medicationTracker'] != null) {
+                                      final tracker = data['medicationTracker'];
+                                      if (tracker[dateKey] != null && tracker[dateKey][med.medicineName] != null) {
+                                        final medData = tracker[dateKey][med.medicineName];
+                                        final taken = medData['takenDoses'] as List? ?? [];
+                                        takenDosesCount += taken.length;
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+
+                              final double overallProgress = totalDosesCount > 0 ? (takenDosesCount / totalDosesCount) : 0.0;
+                              final int percent = (overallProgress * 100).toInt();
+
+                              return Row(
+                                children: [
+                                  if (totalDosesCount > 0) ...[
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.25),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            percent == 100 ? Icons.check_circle_rounded : Icons.pie_chart_rounded,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            "$percent%",
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      DateFormat(
+                                        'dd MMM',
+                                      ).format(_latestAppointment!.dateTime),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
                           ),
                         ],
                       ),
@@ -4729,8 +5036,10 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
           return const SizedBox.shrink();
         }
 
-        final bool isAllTaken =
-            times.isNotEmpty && takenDoses.length >= times.length;
+        final int totalDoses = times.length;
+        final int takenCount = takenDoses.length;
+        final double progress = totalDoses > 0 ? (takenCount / totalDoses) : 0.0;
+        final bool isAllTaken = totalDoses > 0 && takenCount >= totalDoses;
 
         return GestureDetector(
           onTap: () => Navigator.push(
@@ -4770,21 +5079,36 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
                         color: isAllTaken
                             ? const Color(0xFF10B981)
                             : const Color(0xFF10B981).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(
-                        isAllTaken
-                            ? Icons.check_circle_rounded
-                            : Icons.medication_rounded,
-                        color: isAllTaken
-                            ? Colors.white
-                            : const Color(0xFF10B981),
-                        size: 22,
+                      child: Center(
+                        child: isAllTaken
+                            ? const Icon(Icons.check_circle_rounded, color: Colors.white, size: 22)
+                            : Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  CircularProgressIndicator(
+                                    value: progress,
+                                    strokeWidth: 3,
+                                    backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                                  ),
+                                  Text(
+                                    "${(progress * 100).toInt()}%",
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF10B981),
+                                    ),
+                                  ),
+                                ],
+                              ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -4955,14 +5279,16 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: times.map((time) {
-                        final bool isTaken = takenDoses.contains(time);
+                      children: times.map((timeMap) {
+                        final String timeKey = timeMap['time']!;
+                        final String label = timeMap['label']!;
+                        final bool isTaken = takenDoses.contains(timeKey);
                         return InkWell(
                           onTap: () {
                             MedicationTrackingService().toggleDoseTaken(
                               appointmentId: activeMed.appointmentId,
                               medicineName: med.medicineName,
-                              doseTime: time,
+                              doseTime: timeKey,
                               date: DateTime.now(),
                               taken: !isTaken,
                               totalDoses: times.length,
@@ -5003,7 +5329,7 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
                                     ),
                                   ),
                                 Text(
-                                  time,
+                                  '$timeKey ($label)',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: isTaken

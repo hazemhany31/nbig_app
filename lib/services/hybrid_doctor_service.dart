@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'doctor_cache_service.dart';
 import '../models/doctor_model.dart';
 import 'database_helper.dart';
 import 'doctor_service.dart';
@@ -36,7 +37,12 @@ class HybridDoctorService {
   Future<List<Doctor>> getDoctors({String? category}) async {
     List<Doctor> doctors;
     if (_useFirestore) {
-      doctors = await _firestoreService.getAllDoctors(category: category);
+      if (category == null || category == 'All') {
+        doctors = await DoctorCacheService().getDoctors();
+      } else {
+        doctors = await DoctorCacheService().getDoctorsByCategory(
+            category, DoctorService.categoryKeywords);
+      }
     } else {
       doctors = await _sqliteDb.getDoctors(category: category);
     }
@@ -53,7 +59,12 @@ class HybridDoctorService {
   Future<Doctor?> getDoctorById(String doctorId) async {
     Doctor? doc;
     if (_useFirestore) {
-      doc = await _firestoreService.getDoctorById(doctorId);
+      final doctors = await DoctorCacheService().getDoctors();
+      try {
+        doc = doctors.firstWhere((d) => d.id == doctorId);
+      } catch (e) {
+        doc = null;
+      }
     } else {
       final doctors = await _sqliteDb.getDoctors();
       try {
@@ -74,7 +85,7 @@ class HybridDoctorService {
   Future<List<Doctor>> searchDoctors(String keyword) async {
     List<Doctor> doctors;
     if (_useFirestore) {
-      doctors = await _firestoreService.searchDoctors(keyword);
+      doctors = await DoctorCacheService().searchDoctors(keyword);
     } else {
       doctors = await _sqliteDb.searchDoctors(keyword);
     }
@@ -89,7 +100,10 @@ class HybridDoctorService {
   /// جلب التخصصات المتاحة
   Future<List<String>> getSpecialties() async {
     if (_useFirestore) {
-      return await _firestoreService.getSpecialties();
+      final doctors = await DoctorCacheService().getDoctors();
+      final specialties = doctors.map((d) => d.specialty).toSet().toList();
+      specialties.sort();
+      return specialties;
     } else {
       // جلب من SQLite
       final doctors = await _sqliteDb.getDoctors();

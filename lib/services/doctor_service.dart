@@ -7,19 +7,19 @@ class DoctorService {
 
   /// Map from English UI category keyword → all possible values in Firebase
   /// (doctor_app saves new doctors in English, old ones may have Arabic)
-  static const Map<String, List<String>> _categoryKeywords = {
+  static const Map<String, List<String>> categoryKeywords = {
     'All':        [],
     'Cardio':     ['Cardiology', 'قلب'],
-    'Dermatology':['Dermatology', 'جلدية'],
-    'Neurology':  ['Neurology', 'مخ وأعصاب'],
-    'Orthopedics':['Orthopedics', 'عظام'],
-    'Pediatric':  ['Pediatrics', 'أطفال'],
-    'Dent':       ['Dentistry', 'أسنان'],
-    'Ophthalmology':['Ophthalmology', 'عيون'],
-    'Internal Medicine': ['Internal Medicine', 'باطنة'],
+    'Dermatology':['Dermatology', 'جلدية', 'جلدية وتجميل', 'Cosmetology'],
+    'Neurology':  ['Neurology', 'مخ وأعصاب', 'Neurosurgery', 'جراحة مخ'],
+    'Orthopedics':['Orthopedics', 'عظام', 'طب بشري عظام'],
+    'Pediatric':  ['Pediatrics', 'أطفال', 'اطفال'],
+    'Dent':       ['Dentistry', 'أسنان', 'اسنان', 'Dent'],
+    'Ophthalmology':['Ophthalmology', 'عيون', 'رمد', 'طب وجراحة عيون'],
+    'Internal Medicine': ['Internal Medicine', 'باطنة', 'بشري', 'طب بشري', 'General Practice', 'General Medicine'],
     'Obstetrics & Gynecology': ['Obstetrics & Gynecology', 'نساء وتوليد'],
-    'General Surgery': ['General Surgery', 'جراحة عامة'],
-    'ENT': ['ENT', 'أنف وأذن وحنجرة'],
+    'General Surgery': ['General Surgery', 'جراحة عامة', 'Surgery', 'جراحة'],
+    'ENT': ['ENT', 'أنف وأذن وحنجرة', 'اخصائي انف واذن', 'انف واذن'],
     'Psychiatry': ['Psychiatry', 'نفسية'],
     'Urology': ['Urology', 'مسالك بولية'],
     'Physical Therapy': ['Physical Therapy', 'علاج طبيعي', 'Physiotherapy'],
@@ -38,7 +38,7 @@ class DoctorService {
         
         final data = doc.data();
         final spec = (data['specialization'] ?? data['speciality'] ?? data['specialty'] ?? '').toString();
-        final keywords = _categoryKeywords[category] ?? [category];
+        final keywords = categoryKeywords[category] ?? [category];
         
         return keywords.any((k) => spec.toLowerCase().contains(k.toLowerCase()));
       }).map((doc) {

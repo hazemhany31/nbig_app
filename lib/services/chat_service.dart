@@ -86,6 +86,8 @@ class ChatService {
     required String doctorName,
     required String patientId,
     required String patientName,
+    String? doctorSpecialty,
+    String? doctorSpecialtyAr,
   }) async {
     try {
       final candidateIds = <String>{
@@ -117,6 +119,35 @@ class ChatService {
         }
       }
 
+      // Fetch current patient details (including photoUrl)
+      String? patientPhotoUrl;
+      try {
+        final patientDoc =
+            await _firestore.collection('users').doc(patientId).get();
+        if (patientDoc.exists) {
+          patientPhotoUrl = patientDoc.data()?['photoUrl'];
+        }
+      } catch (e) {
+        debugPrint('⚠️ Failed to fetch patient photoUrl for chat: $e');
+      }
+
+      // Fetch doctor details (including photoUrl and specialty)
+      String? doctorPhotoUrl;
+      String? fetchedSpecialty;
+      String? fetchedSpecialtyAr;
+      try {
+        final docSnap =
+            await _firestore.collection('doctors').doc(doctorId).get();
+        if (docSnap.exists) {
+          final data = docSnap.data();
+          doctorPhotoUrl = (data?['image'] ?? data?['photoUrl'])?.toString();
+          fetchedSpecialty = data?['specialty'] ?? data?['specialization'];
+          fetchedSpecialtyAr = data?['specialtyAr'] ?? data?['specializationAr'];
+        }
+      } catch (e) {
+        debugPrint('⚠️ Failed to fetch doctor details for chat: $e');
+      }
+
       final newChat = Chat(
         id: '',
         doctorId: doctorId,
@@ -124,6 +155,10 @@ class ChatService {
         doctorName: doctorName,
         patientId: patientId,
         patientName: patientName,
+        patientPhotoUrl: patientPhotoUrl, // Include photoUrl
+        doctorPhotoUrl: doctorPhotoUrl, // Include doctor photoUrl
+        doctorSpecialty: doctorSpecialty ?? fetchedSpecialty,
+        doctorSpecialtyAr: doctorSpecialtyAr ?? fetchedSpecialtyAr,
         createdAt: DateTime.now(),
       );
 

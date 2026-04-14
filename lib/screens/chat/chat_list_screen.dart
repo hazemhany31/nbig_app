@@ -5,6 +5,7 @@ import '../../models/chat.dart';
 import '../../services/chat_service.dart';
 import 'chat_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 /// شاشة قائمة المحادثات للمريض
 class ChatListScreen extends StatefulWidget {
@@ -281,25 +282,36 @@ class _ChatListItem extends StatelessWidget {
                       height: 56,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFF3B82F6).withValues(alpha: 0.2),
-                            const Color(0xFF8B5CF6).withValues(alpha: 0.2),
-                          ],
-                        ),
+                        image: chat.doctorPhotoUrl != null
+                            ? DecorationImage(
+                                image: CachedNetworkImageProvider(
+                                    chat.doctorPhotoUrl!),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                        gradient: chat.doctorPhotoUrl == null
+                            ? LinearGradient(
+                                colors: [
+                                  const Color(0xFF3B82F6).withValues(alpha: 0.2),
+                                  const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                                ],
+                              )
+                            : null,
                       ),
-                      child: Center(
-                        child: Text(
-                          chat.doctorName.isNotEmpty
-                              ? chat.doctorName[0].toUpperCase()
-                              : 'D',
-                          style: const TextStyle(
-                            color: Color(0xFF3B82F6),
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+                      child: chat.doctorPhotoUrl == null
+                          ? Center(
+                              child: Text(
+                                chat.doctorName.isNotEmpty
+                                    ? chat.doctorName[0].toUpperCase()
+                                    : 'D',
+                                style: const TextStyle(
+                                  color: Color(0xFF3B82F6),
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                          : null,
                     ),
                     if (hasUnread)
                       Positioned(
@@ -333,18 +345,38 @@ class _ChatListItem extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
-                            child: Text(
-                              chat.doctorName,
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: hasUnread
-                                    ? FontWeight.w900
-                                    : FontWeight.w700,
-                                color: isDark
-                                    ? Colors.grey[100]
-                                    : const Color(0xFF0F172A),
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  chat.doctorName,
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: hasUnread
+                                        ? FontWeight.w900
+                                        : FontWeight.w700,
+                                    color: isDark
+                                        ? Colors.grey[100]
+                                        : const Color(0xFF0F172A),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if ((isArabic
+                                            ? chat.doctorSpecialtyAr
+                                            : chat.doctorSpecialty)
+                                        ?.isNotEmpty ??
+                                    false)
+                                  Text(
+                                    isArabic
+                                        ? chat.doctorSpecialtyAr!
+                                        : chat.doctorSpecialty!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF3B82F6),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                           Text(
@@ -357,8 +389,8 @@ class _ChatListItem extends StatelessWidget {
                               color: hasUnread
                                   ? const Color(0xFF3B82F6)
                                   : (isDark
-                                        ? Colors.grey[500]
-                                        : Colors.grey[400]),
+                                      ? Colors.grey[500]
+                                      : Colors.grey[400]),
                             ),
                           ),
                         ],

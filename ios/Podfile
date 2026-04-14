@@ -42,6 +42,7 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
       config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+      config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
       # Fix objective_c dylib lookup on simulator (including beta runtimes)
       config.build_settings['DEAD_CODE_STRIPPING'] = 'NO'
     end

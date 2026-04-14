@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:ui' as ui;
 import '../models/doctor_model.dart';
 import 'dart:async';
@@ -8,6 +9,7 @@ import '../widgets/animated_list_item.dart';
 import '../widgets/animated_press_button.dart';
 import '../services/hybrid_doctor_service.dart';
 import '../services/database_helper.dart';
+import '../language_config.dart';
 
 class SearchDoctorsScreen extends StatefulWidget {
   const SearchDoctorsScreen({super.key});
@@ -24,12 +26,31 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
   bool _isLoading = false;
   Timer? _debounce;
 
+  List<Doctor> _allDoctors = [];
+  bool _isInitializing = true;
+
   @override
   void initState() {
     super.initState();
+    _loadAllDoctorsOnce();
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) _focusNode.requestFocus();
     });
+  }
+
+  Future<void> _loadAllDoctorsOnce() async {
+    try {
+      final HybridDoctorService doctorService = HybridDoctorService();
+      _allDoctors = await doctorService.getDoctors();
+    } catch (e) {
+      // Handle error slightly silently for the user
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+        });
+      }
+    }
   }
 
   @override
@@ -42,12 +63,14 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
 
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 400), () {
+    _debounce = Timer(const Duration(milliseconds: 200), () {
       _performSearch(query);
     });
   }
 
   Future<void> _performSearch(String query) async {
+    if (_isInitializing) return; // Wait for initial load
+
     if (query.trim().isEmpty) {
       if (mounted) {
         setState(() {
@@ -63,11 +86,7 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
     try {
       final String searchLower = query.trim().toLowerCase();
 
-      final HybridDoctorService doctorService = HybridDoctorService();
-      // Use HybridDoctorService which already merges local favorites
-      final List<Doctor> allDocs = await doctorService.getDoctors();
-
-      final filtered = allDocs.where((doc) {
+      final filtered = _allDoctors.where((doc) {
         final matchesName =
             doc.name.toLowerCase().contains(searchLower) ||
             (doc.nameAr.toLowerCase().contains(searchLower));
@@ -119,12 +138,13 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
                 fontSize: 16,
               ),
               decoration: InputDecoration(
-                hintText:
-                    'ابحث عن طبيب أو تخصص...', // "Search doctor or specialty..."
+                hintText: isArabic
+                    ? 'ابحث عن طبيب أو تخصص...'
+                    : 'Search doctor or specialty...',
                 hintStyle: TextStyle(color: Colors.grey[400]),
                 border: InputBorder.none,
               ),
-              textDirection: ui.TextDirection.rtl, // Fixed prefix
+              textDirection: isArabic ? ui.TextDirection.rtl : ui.TextDirection.ltr,
             ),
           ),
         ),
@@ -144,7 +164,7 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
   }
 
   Widget _buildBody(bool isDark) {
-    if (_isLoading) {
+    if (_isInitializing || _isLoading) {
       return ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: 5,
@@ -173,7 +193,7 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'ابحث عن أطباء أو تخصصات', // "Search docs or specialties"
+              isArabic ? 'ابحث عن أطباء أو تخصصات' : 'Search docs or specialties',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -197,7 +217,7 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'لم نتمكن من العثور على نتائج', // "Couldn't find results"
+              isArabic ? 'لم نتمكن من العثور على نتائج' : "Couldn't find results",
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -249,19 +269,36 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
         ),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundColor: const Color(0xFF0EA5E9).withValues(alpha: 0.1),
-              backgroundImage: (doc.image.isNotEmpty)
-                  ? NetworkImage(doc.image)
-                  : null,
-              child: (doc.image.isEmpty)
-                  ? const Icon(
-                      Icons.person_rounded,
-                      color: Color(0xFF0EA5E9),
-                      size: 30,
-                    )
-                  : null,
+            Hero(
+              tag: doc.id,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0EA5E9).withValues(alpha: 0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: 30,
+                  backgroundColor: const Color(0xFF0EA5E9).withValues(alpha: 0.1),
+                  backgroundImage: (doc.image.isNotEmpty && doc.image.startsWith('http'))
+                      ? CachedNetworkImageProvider(doc.image)
+                      : (doc.image.isNotEmpty && doc.image.startsWith('assets/'))
+                          ? AssetImage(doc.image) as ImageProvider
+                          : null,
+                  child: (doc.image.isEmpty)
+                      ? const Icon(
+                          Icons.person_rounded,
+                          color: Color(0xFF0EA5E9),
+                          size: 30,
+                        )
+                      : null,
+                ),
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -269,7 +306,7 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    doc.name,
+                    isArabic ? doc.nameAr : doc.name,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -278,7 +315,7 @@ class _SearchDoctorsScreenState extends State<SearchDoctorsScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    doc.specialty,
+                    isArabic ? doc.specialtyAr : doc.specialty,
                     style: const TextStyle(
                       fontSize: 13,
                       color: Color(0xFF0EA5E9),

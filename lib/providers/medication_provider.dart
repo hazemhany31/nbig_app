@@ -5,7 +5,6 @@ import '../models/appointment_model.dart';
 import '../services/appointment_service.dart';
 import '../services/auth_service.dart';
 
-/// مزود قائمة الأدوية النشطة للمريض
 final patientMedicationsProvider = StreamProvider<List<Appointment>>((ref) {
   final authState = ref.watch(authStateProvider);
   final user = authState.value;
@@ -14,7 +13,7 @@ final patientMedicationsProvider = StreamProvider<List<Appointment>>((ref) {
   final appointmentService = AppointmentService();
   
   return appointmentService.getPatientAppointments(user.uid).asyncMap((appointments) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance(); // ← مرة واحدة فقط ✅
     final List<Appointment> filtered = [];
 
     for (var a in appointments) {
@@ -23,7 +22,7 @@ final patientMedicationsProvider = StreamProvider<List<Appointment>>((ref) {
           a.prescriptions!.isNotEmpty) {
         
         final active = a.prescriptions!.where((p) {
-          // التحقق مما إذا كان الدواء قد تم تعليمه كمكتمل
+          // قراءة من الـ prefs الموجود مسبقاً في الذاكرة
           final isDone = prefs.getBool('done_med_${a.id}_${p.medicineName}') ?? false;
           if (isDone) return false;
 

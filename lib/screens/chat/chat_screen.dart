@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -45,6 +46,7 @@ class _ChatScreenState extends State<ChatScreen> {
   // Anti-spam variables
   DateTime? _lastMessageTime;
   int _rapidMessageCount = 0;
+  Timer? _typingDebounce;
 
   @override
   void initState() {
@@ -63,9 +65,13 @@ class _ChatScreenState extends State<ChatScreen> {
       final hasText = _messageController.text.trim().isNotEmpty;
       if (hasText != _hasText) setState(() => _hasText = hasText);
 
-      final myField = widget.isDoctorView ? 'doctorIsTyping' : 'patientIsTyping';
-      FirebaseFirestore.instance.collection('chats').doc(widget.chat.id)
-          .set({myField: _messageController.text.isNotEmpty}, SetOptions(merge: true));
+      if (_typingDebounce?.isActive ?? false) _typingDebounce!.cancel();
+      _typingDebounce = Timer(const Duration(milliseconds: 500), () {
+        if (!mounted) return;
+        final myField = widget.isDoctorView ? 'doctorIsTyping' : 'patientIsTyping';
+        FirebaseFirestore.instance.collection('chats').doc(widget.chat.id)
+            .set({myField: _messageController.text.isNotEmpty}, SetOptions(merge: true));
+      });
     });
 
     _focusNode.addListener(() => setState(() {}));
@@ -389,6 +395,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _typingDebounce?.cancel();
+    final myField = widget.isDoctorView ? 'doctorIsTyping' : 'patientIsTyping';
+    FirebaseFirestore.instance.collection('chats').doc(widget.chat.id)
+        .set({myField: false}, SetOptions(merge: true));
+
     _focusNode.dispose();
     _messageController.dispose();
     _scrollController.dispose();

@@ -27,6 +27,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     with TickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  bool _showSkip = false;
 
   // Pulsing animation for CTA button
   late AnimationController _pulseController;
@@ -105,6 +106,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _contentController, curve: Curves.easeOutCubic));
     _contentController.forward();
+
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) setState(() => _showSkip = true);
+    });
   }
 
   @override
@@ -190,7 +195,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               top: MediaQuery.of(context).padding.top + 12,
               right: 20,
               child: AnimatedOpacity(
-                opacity: isLast ? 0.0 : 1.0,
+                opacity: (isLast || !_showSkip) ? 0.0 : 1.0,
                 duration: const Duration(milliseconds: 300),
                 child: TextButton(
                   onPressed: isLast ? null : _goToLogin,

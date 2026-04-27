@@ -14,7 +14,6 @@ class EmergencyService {
     try {
       // --- DAILY LIMIT CHECK: 2 alerts per day (Robust Dart filtering) ---
       final now = DateTime.now();
-      final startOfDay = DateTime(now.year, now.month, now.day);
       
       final allUserAlerts = await _firestore
           .collection('emergency_alerts')

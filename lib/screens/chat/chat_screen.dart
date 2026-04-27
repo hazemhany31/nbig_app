@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -167,8 +168,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
       setState(() => _isSendingImage = true);
 
-      final bytes = await image.readAsBytes();
-      final base64String = base64Encode(bytes);
+      final Uint8List bytes = await image.readAsBytes();
 
       await _chatService.sendMessage(
         chatId: widget.chat.id,
@@ -176,8 +176,8 @@ class _ChatScreenState extends State<ChatScreen> {
         senderName: _displayNameMe,
         senderType: widget.isDoctorView ? 'doctor' : 'patient',
         text: '📷 صورة',
-        messageType: 'image',
-        imageBase64: base64String,
+        type: 'image',
+        imageBytes: bytes,
         recipientId: widget.isDoctorView
             ? widget.chat.patientId
             : (widget.chat.doctorUserId.isNotEmpty
@@ -211,8 +211,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
       setState(() => _isSendingImage = true);
 
-      final bytes = await image.readAsBytes();
-      final base64String = base64Encode(bytes);
+      final Uint8List bytes = await image.readAsBytes();
 
       await _chatService.sendMessage(
         chatId: widget.chat.id,
@@ -220,8 +219,8 @@ class _ChatScreenState extends State<ChatScreen> {
         senderName: _displayNameMe,
         senderType: widget.isDoctorView ? 'doctor' : 'patient',
         text: '📷 صورة',
-        messageType: 'image',
-        imageBase64: base64String,
+        type: 'image',
+        imageBytes: bytes,
         recipientId: widget.isDoctorView
             ? widget.chat.patientId
             : (widget.chat.doctorUserId.isNotEmpty
@@ -758,7 +757,9 @@ class _MessageBubble extends StatelessWidget {
     required this.isDark,
   });
 
-  void _showFullImage(BuildContext context, String base64String) {
+  /// Show full-screen image viewer. Supports both URL and legacy base64 data.
+  void _showFullImage(BuildContext context, String imageData) {
+    final bool isUrl = imageData.startsWith('http://') || imageData.startsWith('https://');
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -778,10 +779,23 @@ class _MessageBubble extends StatelessWidget {
                   panEnabled: true,
                   minScale: 0.5,
                   maxScale: 4,
-                  child: Image.memory(
-                    base64Decode(base64String),
-                    fit: BoxFit.contain,
-                  ),
+                  child: isUrl
+                      ? CachedNetworkImage(
+                          imageUrl: imageData,
+                          fit: BoxFit.contain,
+                          placeholder: (context, url) => const Center(
+                            child: CircularProgressIndicator(color: Colors.white),
+                          ),
+                          errorWidget: (context, url, error) => const Icon(
+                            Icons.broken_image_rounded,
+                            color: Colors.white54,
+                            size: 64,
+                          ),
+                        )
+                      : Image.memory(
+                          base64Decode(imageData),
+                          fit: BoxFit.contain,
+                        ),
                 ),
               ),
             ),
@@ -865,15 +879,15 @@ class _MessageBubble extends StatelessWidget {
                     ? CrossAxisAlignment.end
                     : CrossAxisAlignment.start,
                 children: [
-                  if (message.isImage && message.imageBase64 != null)
+                  if (message.isImage && message.imageUrl != null)
                     GestureDetector(
                       onTap: () =>
-                          _showFullImage(context, message.imageBase64!),
+                          _showFullImage(context, message.imageUrl!),
                       child: Hero(
                         tag: message.id,
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(20),
-                          child: constraintsBox(context, message.imageBase64!),
+                          child: _buildImageWidget(context, message.imageUrl!),
                         ),
                       ),
                     )
@@ -923,13 +937,50 @@ class _MessageBubble extends StatelessWidget {
     );
   }
 
-  Widget constraintsBox(BuildContext context, String base64Str) {
+  /// Builds image widget supporting both Firebase Storage URLs and legacy base64 data.
+  Widget _buildImageWidget(BuildContext context, String imageData) {
+    final bool isUrl = imageData.startsWith('http://') || imageData.startsWith('https://');
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxWidth: MediaQuery.of(context).size.width * 0.7,
         maxHeight: 250,
       ),
-      child: Image.memory(base64Decode(base64Str), fit: BoxFit.cover),
+      child: isUrl
+          ? CachedNetworkImage(
+              imageUrl: imageData,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(
+                width: 200,
+                height: 150,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFF3B82F6),
+                  ),
+                ),
+              ),
+              errorWidget: (context, url, error) => Container(
+                width: 200,
+                height: 150,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.broken_image_rounded, color: Colors.grey, size: 40),
+                    SizedBox(height: 8),
+                    Text('فشل تحميل الصورة', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
+              ),
+            )
+          : Image.memory(base64Decode(imageData), fit: BoxFit.cover),
     );
   }
 }

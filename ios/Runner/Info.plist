@@ -38,11 +38,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>This app requires access to your camera to let you take a photo for your profile or medical records.</string>
+	<string>We need access to your camera to securely capture photos for your medical records and personalized user profile.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>This app requires access to your microphone when recording video for medical consultations.</string>
+	<string>We require microphone access to transmit your audio securely during online medical video consultations.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app requires access to your photo library to allow you to upload profile pictures and medical records.</string>
+	<string>We need photo library access to let you select and securely upload medical documents or a profile picture from your existing photo albums.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

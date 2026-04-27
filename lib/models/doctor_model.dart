@@ -24,6 +24,8 @@ class Doctor {
   final String? instagram;
   final String? linkedin;
   final String? twitter;
+  final bool isVerified; // Verified Doctor Badge
+
 
   static const Map<String, String> _specializationTranslations = {
     'Internal Medicine': 'باطنة',
@@ -76,7 +78,9 @@ class Doctor {
     this.instagram,
     this.linkedin,
     this.twitter,
+    this.isVerified = false,
   });
+
 
   factory Doctor.fromMap(Map<String, dynamic> json) {
     return Doctor(
@@ -164,7 +168,9 @@ class Doctor {
       instagram: json['instagram']?.toString(),
       linkedin: json['linkedin']?.toString(),
       twitter: json['twitter']?.toString(),
+      isVerified: json['isVerified'] == true,
     );
+
   }
 
   Map<String, dynamic> toMap() {
@@ -197,7 +203,9 @@ class Doctor {
       'instagram': instagram,
       'linkedin': linkedin,
       'twitter': twitter,
+      'isVerified': isVerified,
     };
+
   }
 
   static String _stripHtml(String htmlString) {

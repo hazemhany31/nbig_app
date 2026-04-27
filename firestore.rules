@@ -22,9 +22,12 @@ service cloud.firestore {
     // 1. Chats Collection
     // ==========================================
     match /chats/{chatId} {
-      // Allow read/update if user is authenticated
-      // The strict participant check was causing permission-denied in queries
-      allow read, update: if isAuthenticated();
+      // Allow read/update if user is a participant
+      allow read, update: if isAuthenticated() && (
+        resource.data.patientId == request.auth.uid || 
+        resource.data.doctorUserId == request.auth.uid ||
+        resource.data.doctorId == request.auth.uid
+      );
       
       // Allow create only if the user is one of the participants being added
       allow create: if isAuthenticated() && (
@@ -38,8 +41,12 @@ service cloud.firestore {
       
       // --- Messages Subcollection ---
       match /messages/{messageId} {
-        // Allow read/write if user is authenticated
-        allow read, write: if isAuthenticated();
+        // Allow read/write only if the user is a participant of the parent chat
+        allow read, write: if isAuthenticated() && (
+          get(/databases/$(database)/documents/chats/$(chatId)).data.patientId == request.auth.uid ||
+          get(/databases/$(database)/documents/chats/$(chatId)).data.doctorUserId == request.auth.uid ||
+          get(/databases/$(database)/documents/chats/$(chatId)).data.doctorId == request.auth.uid
+        );
       }
     }
     
@@ -49,11 +56,13 @@ service cloud.firestore {
     match /doctors/{doctorId} {
       allow read: if isAuthenticated();
       
-      // Allow the doctor to update their own profile, OR allow any authenticated user to update 
-      // (mainly needed for incrementing patientsCount and updating ratings without complex diff evaluations that fail when fields don't exist)
-      allow update: if isAuthenticated();
+      // Allow doctor to update their own profile, OR allow any authenticated user to update ONLY specific non-sensitive fields
+      // Matches doctor-app rules: prevents patients from overwriting doctor profile data
+      allow update: if isUser(doctorId) || (
+        isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['patientsCount', 'rating', 'totalReviews'])
+      );
       
-      allow delete: if isAuthenticated();
+      allow delete: if isUser(doctorId);
       allow create: if isUser(doctorId);
     }
     
@@ -61,26 +70,39 @@ service cloud.firestore {
     // 3. Appointments Collection
     // ==========================================
     match /appointments/{appointmentId} {
-      allow read: if isAuthenticated();
+      // Must be the involved patient or doctor
+      allow read: if isAuthenticated() && (
+        resource.data.patientId == request.auth.uid || 
+        resource.data.doctorId == request.auth.uid ||
+        resource.data.doctorUserId == request.auth.uid
+      );
       
-      // Allow any authenticated user to update (doctor updating status, patient cancelling, etc.)
-      // The strict participant check was causing permission-denied when doctorUserId was empty.
-      allow update: if isAuthenticated();
+      // Must be involved to update
+      allow update: if isAuthenticated() && (
+        resource.data.patientId == request.auth.uid || 
+        resource.data.doctorId == request.auth.uid ||
+        resource.data.doctorUserId == request.auth.uid
+      );
       
       // Anyone authenticated can create if they set themselves as patient
       allow create: if isAuthenticated() && request.resource.data.patientId == request.auth.uid;
       
-      allow delete: if isAuthenticated() && resource.data.patientId == request.auth.uid;
+      allow delete: if isAuthenticated() && (
+        resource.data.patientId == request.auth.uid || 
+        resource.data.doctorId == request.auth.uid ||
+        resource.data.doctorUserId == request.auth.uid
+      );
     }
     
     // ==========================================
     // 4. Users Collection
     // ==========================================
     match /users/{userId} {
-      // Users can read/write their own info.
-      // (Doctors can read patient profiles if needed).
-      allow read: if isAuthenticated(); 
-      allow write: if isAuthenticated();
+      // Users can read their own info, or doctors can read user profiles.
+      allow read: if isUser(userId) || isDoctor(); 
+      allow update: if isUser(userId);
+      allow create: if isUser(userId);
+      allow delete: if isUser(userId);
 
       // --- Medical Records Subcollection ---
       match /medical_records/{recordId} {
@@ -99,19 +121,43 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.resource.data.patientId == request.auth.uid;
       
       // Patient who created it OR any doctor can read and update it.
-      allow read, update: if isAuthenticated();
+      allow read, update: if isAuthenticated() && (
+        resource.data.patientId == request.auth.uid || isDoctor()
+      );
       
       // Only patient can delete their own alert
       allow delete: if isAuthenticated() && resource.data.patientId == request.auth.uid;
     }
 
-    // ==========================================
-    // 6. Notifications Collection
-    // ==========================================
     match /notifications/{notificationId} {
-      // Allow read/write for authenticated users since Firestore query evaluation
-      // blocks queries that rely on `get()` or `exists()` internally.
-      allow read, write: if isAuthenticated();
+      // A user can read, update, or delete only their own notifications.
+      // Use 'recipientId' as it matches the application's query filter.
+      allow read, update, delete: if isAuthenticated() && resource.data.recipientId == request.auth.uid;
+      // Anyone can create a notification for someone else.
+      allow create: if isAuthenticated();
+    }
+    // ==========================================
+    // 7. Donations Collection
+    // ==========================================
+    match /donations/{donationId} {
+      // All authenticated users can read donations
+      allow read: if isAuthenticated();
+      
+      // All authenticated users can create donations
+      allow create: if isAuthenticated();
+      
+      // Allow update if user owns the donation OR is a doctor (for recommendations)
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.donorId == request.auth.uid ||
+        isDoctor()
+      );
+      
+      // Allow delete if user owns the donation
+      allow delete: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.donorId == request.auth.uid
+      );
     }
   }
 }

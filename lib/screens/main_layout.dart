@@ -34,6 +34,9 @@ import '../services/app_notification_service.dart';
 import '../services/medication_tracking_service.dart';
 import '../services/hybrid_doctor_service.dart';
 import '../services/doctor_service.dart';
+import 'donations/donation_feed_screen.dart';
+import 'donations/add_donation_screen.dart';
+
 
 import '../language_config.dart';
 import '../widgets/shimmer_loading.dart';
@@ -843,7 +846,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 30),
 
+                    // === Community Services (Medicine Donation) ===
+                    _buildCommunityServices(),
+                    const SizedBox(height: 30),
+
                     // === Emergency Banner ===
+
                     _buildEmergencyBanner(),
                     const SizedBox(height: 30),
 
@@ -955,6 +963,117 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  Widget _buildCommunityServices() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          isArabic ? 'خدمات المجتمع' : 'Community Services',
+          style: TextStyle(
+            fontSize: 19,
+            fontWeight: FontWeight.w800,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : const Color(0xFF0F172A),
+            letterSpacing: -0.3,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildServiceCard(
+                icon: Icons.volunteer_activism_rounded,
+                title: isArabic ? 'تبرع بالدواء' : 'Donate Medicine',
+                subtitle: isArabic ? 'ساعد الآخرين' : 'Help others',
+                color: const Color(0xFF10B981),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddDonationScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: _buildServiceCard(
+                icon: Icons.local_pharmacy_rounded,
+                title: isArabic ? 'بحث عن دواء' : 'Find Medicine',
+                subtitle: isArabic ? 'تبرعات الخير' : 'Charity feed',
+                color: const Color(0xFF3B82F6),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const DonationFeedScreen()),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildServiceCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.1),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+          border: Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : color.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   // Extracted doctor item for cleaner code
   Widget _buildCategoryItem(
@@ -1076,6 +1195,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             imageUrl: item['image']!,
                             height: 120,
                             width: double.infinity,
+                            memCacheWidth: 400,
                             fit: BoxFit.cover,
                             placeholder: (context, url) => Container(
                               color: Colors.grey[100],
@@ -1208,6 +1328,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               imageUrl: post.image,
                               height: 160,
                               width: double.infinity,
+                              memCacheWidth: 600,
                               fit: BoxFit.cover,
                               errorWidget: (context, url, error) => Container(
                                 height: 160,
@@ -1712,7 +1833,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
       _loadAppointments();
       if (mounted) {
-        ScaffoldMessenger.of(ctx).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               isArabic ? "تم إلغاء الموعد ❌" : "Appointment Canceled ❌",
@@ -1787,7 +1908,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     _loadAppointments();
 
     if (mounted) {
-      ScaffoldMessenger.of(ctx).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             isArabic
@@ -2762,6 +2883,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String userGender = "";
   String? _imagePath;
 
+  bool _isDeletingAccount = false;
+  String _deletionStatus = "";
+
   int _appointmentsCount = 0;
   int _underCareCount = 0;
   int _recordsCount = 0;
@@ -2971,8 +3095,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final storageRef = FirebaseStorage.instance.ref().child(
             'uploads/${user.uid}/$fileName',
           );
-
-          await storageRef.putFile(fileToUpload);
+          
+          String ext = extension(fileName).replaceAll('.', '').toLowerCase();
+          String contentType = 'application/octet-stream';
+          if (ext == 'pdf') {
+            contentType = 'application/pdf';
+          } else if (ext == 'png') {
+            contentType = 'image/png';
+          } else if (ext == 'jpg' || ext == 'jpeg') {
+            contentType = 'image/jpeg';
+          }
+          
+          await storageRef.putFile(
+            fileToUpload,
+            SettableMetadata(contentType: contentType),
+          );
           String downloadUrl = await storageRef.getDownloadURL();
 
           // 3. حفظ الرابط في Firestore
@@ -3034,54 +3171,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _purgeUserData(String uid) async {
     try {
       final firestore = FirebaseFirestore.instance;
-      final userDoc = firestore.collection('users').doc(uid);
-
-      // مسح medical_records subcollection
+      
+      // 1. Delete medical_records
+      setState(() => _deletionStatus = isArabic ? "حذف الملفات الطبية..." : "Deleting medical records...");
       try {
-        final records = await userDoc.collection('medical_records').get();
-        for (final doc in records.docs) {
-          await doc.reference.delete();
+        final records = await firestore.collection('users').doc(uid).collection('medical_records').get();
+        if (records.docs.isNotEmpty) {
+          final batch = firestore.batch();
+          for (final doc in records.docs) {
+            batch.delete(doc.reference);
+          }
+          await batch.commit();
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Error purging medical_records: $e');
+      }
 
-      // مسح notifications من الـ root collection
+      // 2. Delete notifications
+      setState(() => _deletionStatus = isArabic ? "حذف التنبيهات..." : "Deleting notifications...");
       try {
         final notifs = await firestore
             .collection('notifications')
             .where('recipientId', isEqualTo: uid)
             .get();
-        for (final doc in notifs.docs) {
-          await doc.reference.delete();
+        if (notifs.docs.isNotEmpty) {
+          final chunks = _chunkList(notifs.docs, 400);
+          for (final chunk in chunks) {
+            final batch = firestore.batch();
+            for (final doc in chunk) {
+              batch.delete(doc.reference);
+            }
+            await batch.commit();
+          }
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Error purging notifications: $e');
+      }
 
-      // مسح appointments من الـ root collection
+      // 3. Delete appointments
+      setState(() => _deletionStatus = isArabic ? "حذف المواعيد..." : "Deleting appointments...");
       try {
         final appts = await firestore
             .collection('appointments')
             .where('patientId', isEqualTo: uid)
             .get();
-        for (final doc in appts.docs) {
-          await doc.reference.delete();
+        if (appts.docs.isNotEmpty) {
+          final batch = firestore.batch();
+          for (final doc in appts.docs) {
+            batch.delete(doc.reference);
+          }
+          await batch.commit();
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Error purging appointments: $e');
+      }
 
-      // مسح الملفات من Firebase Storage
+      // 4. Delete Storage Files (Parallelized)
+      setState(() => _deletionStatus = isArabic ? "حذف الصور والملفات..." : "Deleting files and images...");
       try {
         final storageRef = FirebaseStorage.instance.ref().child('uploads/$uid');
         final listResult = await storageRef.listAll();
-        for (final item in listResult.items) {
-          await item.delete();
+        if (listResult.items.isNotEmpty) {
+          await Future.wait(listResult.items.map((item) => item.delete()));
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Error purging storage: $e');
+      }
 
-      // مسح document المستخدم الرئيسي آخر حاجة
+      // 5. Delete main user document
+      setState(() => _deletionStatus = isArabic ? "اللمسات الأخيرة..." : "Final touches...");
       try {
-        await userDoc.delete();
-      } catch (_) {}
-    } catch (_) {
-      // نكمل حتى لو فشل مسح البيانات — الحساب اتحذف
+        await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+      } catch (e) {
+        debugPrint('Error deleting user doc: $e');
+      }
+    } catch (e) {
+      debugPrint('Overall purge error: $e');
     }
+  }
+
+  // Helper to chunk list for batches
+  List<List<T>> _chunkList<T>(List<T> list, int chunkSize) {
+    List<List<T>> chunks = [];
+    for (var i = 0; i < list.length; i += chunkSize) {
+      chunks.add(list.sublist(i, i + chunkSize > list.length ? list.length : i + chunkSize));
+    }
+    return chunks;
   }
 
   Future<void> _deleteAccount() async {
@@ -3089,15 +3264,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user == null) return;
     final uid = user.uid;
 
-    // نحاول نحذف الـ auth account أولاً
     try {
-      await user.delete();
-
-      // نجح الحذف → نمسح البيانات
+      // مسح البيانات أولاً (قبل حذف الـ Auth عشان ما يحصلش crash)
       await _purgeUserData(uid);
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
+
+      // حذف الـ Auth Account آخراً
+      await user.delete();
 
       if (mounted) {
         Navigator.pushAndRemoveUntil(
@@ -3252,14 +3427,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         );
                         await user.reauthenticateWithCredential(credential);
 
-                        Navigator.pop(ctx);
+                        if (!mounted) return;
+                        Navigator.pop(context); // Close password dialog
+                        
+                        setState(() {
+                          _isDeletingAccount = true;
+                          _deletionStatus = isArabic ? "بدء عملية الحذف..." : "Initializing deletion...";
+                        });
+
                         final uid = user.uid;
-                        await user.delete();
+                        // 1. مسح البيانات أولاً (المستخدم لازال مسجل دخول)
                         await _purgeUserData(uid);
 
+                        // 2. مسح SharedPreferences
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.clear();
 
+                        // 3. حذف الـ Auth Account آخراً (هيسبب logout تلقائي)
+                        if (!mounted) return;
+                        setState(() => _deletionStatus = isArabic ? "حذف الحساب النهائي..." : "Removing account...");
+                        await user.delete();
+
+                        // 4. التنقل لشاشة تسجيل الدخول
                         if (mounted) {
                           Navigator.pushAndRemoveUntil(
                             context,
@@ -3274,28 +3463,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         }
                       } on FirebaseAuthException catch (e) {
                         setDialogState(() => isLoading = false);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              isArabic
-                                  ? 'كلمة مرور خاطئة أو مشكلة في السيرفر: ${e.message}'
-                                  : 'Incorrect password or server error: ${e.message}',
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                isArabic
+                                    ? 'كلمة مرور خاطئة أو مشكلة في السيرفر: ${e.message}'
+                                    : 'Incorrect password or server error: ${e.message}',
+                              ),
+                              backgroundColor: Colors.red,
                             ),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
+                          );
+                        }
                       } catch (e) {
                         setDialogState(() => isLoading = false);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              isArabic
-                                  ? 'حدث خطأ غير متوقع: $e'
-                                  : 'Unexpected error: $e',
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                isArabic
+                                    ? 'حدث خطأ غير متوقع: $e'
+                                    : 'Unexpected error: $e',
+                              ),
+                              backgroundColor: Colors.red,
                             ),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
+                          );
+                        }
                       }
                     },
               child: Text(
@@ -3358,7 +3551,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return SafeArea(
+    return Stack(
+      children: [
+      SafeArea(
       child: SingleChildScrollView(
         child: Column(
           children: [
@@ -3596,6 +3791,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ], isDark),
 
                   const SizedBox(height: 20),
+                  // === Doctor Specific section ===
+                  FutureBuilder<Map<String, dynamic>?>(
+                    future: AuthService().getUserData(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData && snapshot.data?['role'] == 'doctor') {
+                        final isDocVerified = snapshot.data?['isVerified'] == true;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSectionHeader(isArabic ? 'إدارة المجتمع' : 'Community Management', isDark),
+                            const SizedBox(height: 8),
+                            _buildSettingsCard([
+                              _buildProfileOption(
+                                Icons.verified_user_rounded,
+                                isArabic ? 'تبرعات المجتمع' : 'Community Donations',
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const DonationFeedScreen()),
+                                ),
+                                isDark: isDark,
+                                color: const Color(0xFF3B82F6),
+                                trailing: isDocVerified ? Icon(Icons.verified_rounded, color: Colors.blue[400], size: 20) : null,
+                              ),
+                            ], isDark),
+                            const SizedBox(height: 20),
+                          ],
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+
                   // === Support section ===
                   _buildSectionHeader(
                     isArabic ? 'دعم ومعلومات' : 'Support',
@@ -3627,16 +3854,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       isDark: isDark,
                       color: const Color(0xFF0EA5E9),
                     ),
-                    _buildProfileOption(
-                      Icons.volunteer_activism_rounded,
-                      isArabic ? 'تبرع' : 'Donate',
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const DonateScreen()),
-                      ),
-                      isDark: isDark,
-                      color: const Color(0xFFF43F5E),
-                    ),
+
                   ], isDark),
 
                   const SizedBox(height: 28),
@@ -3665,7 +3883,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         await AuthService().signOut();
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.clear();
-                        if (mounted) {
+                        if (context.mounted) {
                           Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(
@@ -3747,7 +3965,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-    );
+      ), // closes SafeArea
+      // Loading overlay for account deletion
+      if (_isDeletingAccount)
+        Container(
+          color: Colors.black.withOpacity(0.65),
+          child: Center(
+            child: Card(
+              margin: const EdgeInsets.symmetric(horizontal: 40),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: Padding(
+                padding: const EdgeInsets.all(30.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      isArabic ? '\u062c\u0627\u0631\u064a \u062d\u0630\u0641 \u0627\u0644\u062d\u0633\u0627\u0628...' : 'Deleting Account...',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _deletionStatus,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+    ]); // closes Stack
   }
 
   Widget _buildProfileStat(String label, String value, bool isDark) {
@@ -4245,7 +4497,7 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
                   continue;
                 }
 
-                if (true || _isMedicationActive(appt.dateTime, med)) {
+                if (_isMedicationActive(appt.dateTime, med)) {
                   if (!allActiveMeds.any(
                     (am) =>
                         am.prescription.medicineName.trim().toLowerCase() ==

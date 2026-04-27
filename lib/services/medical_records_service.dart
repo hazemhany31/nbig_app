@@ -21,12 +21,27 @@ class MedicalRecordsService {
     final ref = _storage.ref().child('medical_records/$patientId/$filename');
     
     final TaskSnapshot uploadTask;
+    
+    // Determine content type dynamically to allow smooth browser/native viewing without forcing download
+    String contentType = 'application/octet-stream';
+    if (type.toLowerCase() == 'pdf') {
+      contentType = 'application/pdf';
+    } else if (type.toLowerCase() == 'png') {
+      contentType = 'image/png';
+    } else if (type.toLowerCase() == 'jpg' || type.toLowerCase() == 'jpeg') {
+      contentType = 'image/jpeg';
+    } else if (type.toLowerCase() == 'doc' || type.toLowerCase() == 'docx') {
+      contentType = 'application/msword';
+    }
+
+    final metadata = SettableMetadata(contentType: contentType);
+
     if (kIsWeb) {
       if (bytes == null) throw Exception("Bytes are required for web upload");
-      uploadTask = await ref.putData(bytes, SettableMetadata(contentType: 'application/octet-stream'));
+      uploadTask = await ref.putData(bytes, metadata);
     } else {
       if (file == null) throw Exception("File is required for mobile upload");
-      uploadTask = await ref.putFile(file);
+      uploadTask = await ref.putFile(file, metadata);
     }
     final url = await uploadTask.ref.getDownloadURL();
 

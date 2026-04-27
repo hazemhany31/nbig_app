@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import '../models/chat.dart';
 import '../models/message.dart';
@@ -6,6 +7,7 @@ import '../models/message.dart';
 /// خدمة إدارة المحادثات والرسائل للمريض
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   /// معرّف مستند Firestore واحد لكل زوج (مريض + طبيب) — نفس الصيغة لازم تتبع في **تطبيق الدكتور**
   /// عشان الاتنين يفتحوا `chats/{id}` من غير ما يعتمدوا على بحث أو `add()`.
@@ -195,7 +197,37 @@ class ChatService {
     );
   }
 
+  /// رفع صورة إلى Firebase Storage وإرجاع رابط التحميل
+  Future<String?> _uploadChatImage({
+    required String chatId,
+    required Uint8List imageBytes,
+  }) async {
+    try {
+      final String fileName =
+          'img_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final Reference storageRef = _storage.ref().child(
+        'chats/$chatId/$fileName',
+      );
+
+      final UploadTask uploadTask = storageRef.putData(
+        imageBytes,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+
+      final TaskSnapshot snapshot = await uploadTask;
+      final String downloadUrl = await snapshot.ref.getDownloadURL();
+
+      debugPrint('✅ تم رفع صورة المحادثة بنجاح: $downloadUrl');
+      return downloadUrl;
+    } catch (e) {
+      debugPrint('❌ خطأ في رفع صورة المحادثة: $e');
+      return null;
+    }
+  }
+
   /// إرسال رسالة جديدة
+  /// For image messages: pass [imageBytes] (raw bytes from picker).
+  /// The image will be uploaded to Firebase Storage and the URL saved in Firestore.
   Future<void> sendMessage({
     required String chatId,
     required String senderId,
@@ -203,10 +235,22 @@ class ChatService {
     required String senderType,
     required String text,
     String? recipientId, // Optional recipient ID for notifications
-    String messageType = 'text',
-    String? imageBase64,
+    String type = 'text',
+    Uint8List? imageBytes,
   }) async {
     try {
+      // Upload image to Firebase Storage if this is an image message
+      String? imageUrl;
+      if (type == 'image' && imageBytes != null) {
+        imageUrl = await _uploadChatImage(
+          chatId: chatId,
+          imageBytes: imageBytes,
+        );
+        if (imageUrl == null) {
+          throw Exception('فشل رفع الصورة إلى Firebase Storage');
+        }
+      }
+
       final message = Message(
         id: '',
         senderId: senderId,
@@ -215,8 +259,8 @@ class ChatService {
         text: text,
         sentAt: DateTime.now(),
         isRead: false,
-        messageType: messageType,
-        imageBase64: imageBase64,
+        type: type,
+        imageUrl: imageUrl,
       );
 
       // إضافة الرسالة
@@ -228,7 +272,7 @@ class ChatService {
 
       // تحديث آخر رسالة وعدد الرسائل غير المقروءة باستخدام merge لتجنب الفشل الصامت
       final chatRef = _firestore.collection('chats').doc(chatId);
-      final lastMessageText = messageType == 'image' ? '📷 صورة' : text;
+      final lastMessageText = type == 'image' ? '📷 صورة' : text;
       
       final updates = <String, dynamic>{
         'lastMessage': lastMessageText,

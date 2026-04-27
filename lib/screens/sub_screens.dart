@@ -695,9 +695,11 @@ class _DoctorDetailsScreenState extends State<DoctorDetailsScreen> {
                             }
                           } catch (e) {
 
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e')),
-                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error: $e')),
+                              );
+                            }
                           }
                         },
                         child: Container(

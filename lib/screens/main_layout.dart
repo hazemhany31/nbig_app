@@ -564,16 +564,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               const SizedBox(height: 6),
-                              Text(
-                                widget.userName,
+                              TypewriterText(
+                                text: widget.userName,
                                 style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w800,
                                   color:
-                                      Theme.of(context).brightness ==
-                                          Brightness.dark
-                                      ? Colors.white
-                                      : const Color(0xFF0F172A),
+                                      Theme.of(context).brightness == Brightness.dark
+                                          ? Colors.white
+                                          : const Color(0xFF0F172A),
                                   letterSpacing: -0.5,
                                 ),
                               ),
@@ -5717,4 +5716,44 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
       ],
     ),
   );
+}
+
+/// Animated typewriter text effect for dashboard greetings
+class TypewriterText extends StatefulWidget {
+  final String text;
+  final TextStyle? style;
+  const TypewriterText({super.key, required this.text, this.style});
+  
+  @override
+  State<TypewriterText> createState() => _TypewriterTextState();
+}
+
+class _TypewriterTextState extends State<TypewriterText> {
+  String _displayed = '';
+  int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _typeNext();
+  }
+
+  void _typeNext() {
+    if (_index < widget.text.length) {
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (mounted) {
+          setState(() {
+            _displayed += widget.text[_index];
+            _index++;
+          });
+          _typeNext();
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(_displayed, style: widget.style);
+  }
 }

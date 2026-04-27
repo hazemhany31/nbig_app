@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'firebase_options.dart';
 import 'screens/auth/auth_check.dart';
 import 'services/notification_service.dart';
@@ -118,27 +119,37 @@ class _DoctorAppState extends State<DoctorApp> {
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.light,
-        scaffoldBackgroundColor: const Color(0xFFF0F4F8),
-        primaryColor: const Color(0xFF10B981),
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+        primaryColor: const Color(0xFF0B6E6E),
         colorScheme: const ColorScheme.light(
-          primary: Color(0xFF10B981),
+          primary: Color(0xFF0B6E6E),
           onPrimary: Colors.white,
-          secondary: Color(0xFF6366F1),
+          secondary: Color(0xFF0D9488),
           onSecondary: Colors.white,
+          tertiary: Color(0xFF3B82F6),
           surface: Color(0xFFFFFFFF),
           onSurface: Color(0xFF0F172A),
           outline: Color(0xFFE2E8F0),
           error: Color(0xFFEF4444),
         ),
         cardColor: Colors.white,
-        textTheme: const TextTheme(
-          displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0, color: Color(0xFF0F172A)),
-          displayMedium: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Color(0xFF0F172A)),
-          titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
-          titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-          bodyLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF334155)),
-          bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xFF64748B)),
-          labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.2),
+        textTheme: GoogleFonts.cairoTextTheme(
+          const TextTheme(
+            displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0, color: Color(0xFF0F172A)),
+            displayMedium: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Color(0xFF0F172A)),
+            headlineLarge: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Color(0xFF0F172A), letterSpacing: -0.5),
+            headlineMedium: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+            headlineSmall: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+            titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+            titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+            titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+            bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFF334155), height: 1.5),
+            bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xFF64748B), height: 1.5),
+            bodySmall: TextStyle(fontSize: 12, color: Color(0xFF94A3B8), height: 1.4),
+            labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.2),
+            labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF64748B)),
+            labelSmall: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF94A3B8)),
+          ),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
@@ -152,22 +163,24 @@ class _DoctorAppState extends State<DoctorApp> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(20))),
           color: Colors.white,
         ),
-        inputDecorationTheme: const InputDecorationTheme(
+        inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white,
-          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-            borderSide: BorderSide(color: Color(0xFFE2E8F0)),
+            borderRadius: const BorderRadius.all(Radius.circular(16)),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-            borderSide: BorderSide(color: Color(0xFFE2E8F0)),
+            borderRadius: const BorderRadius.all(Radius.circular(16)),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-            borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
+            borderRadius: const BorderRadius.all(Radius.circular(16)),
+            borderSide: const BorderSide(color: Color(0xFF0B6E6E), width: 2),
           ),
+          hintStyle: GoogleFonts.cairo(fontSize: 14, color: const Color(0xFF94A3B8)),
+          labelStyle: GoogleFonts.cairo(fontSize: 14, color: const Color(0xFF64748B)),
         ),
         chipTheme: const ChipThemeData(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
@@ -176,7 +189,7 @@ class _DoctorAppState extends State<DoctorApp> {
         switchTheme: SwitchThemeData(
           thumbColor: const WidgetStatePropertyAll(Colors.white),
           trackColor: WidgetStateProperty.resolveWith((s) =>
-            s.contains(WidgetState.selected) ? const Color(0xFF10B981) : const Color(0xFFCBD5E1)),
+            s.contains(WidgetState.selected) ? const Color(0xFF0B6E6E) : const Color(0xFFCBD5E1)),
         ),
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
@@ -188,27 +201,37 @@ class _DoctorAppState extends State<DoctorApp> {
       darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF121212),
-        primaryColor: const Color(0xFF10B981),
+        scaffoldBackgroundColor: const Color(0xFF0F172A),
+        primaryColor: const Color(0xFF0D9488),
         colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF10B981),
+          primary: Color(0xFF0D9488),
           onPrimary: Colors.white,
-          secondary: Color(0xFF818CF8),
+          secondary: Color(0xFF0B6E6E),
           onSecondary: Colors.white,
-          surface: Color(0xFF1E1E1E),
-          onSurface: Color(0xFFE0E0E0),
-          outline: Color(0xFF333333),
-          error: Color(0xFFEF4444),
+          tertiary: Color(0xFF3B82F6),
+          surface: Color(0xFF1E293B),
+          onSurface: Color(0xFFE2E8F0),
+          outline: Color(0xFF334155),
+          error: Color(0xFFF87171),
         ),
-        cardColor: const Color(0xFF1E1E1E),
-        textTheme: const TextTheme(
-          displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0, color: Color(0xFFF1F5F9)),
-          displayMedium: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Color(0xFFF1F5F9)),
-          titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFFF1F5F9)),
-          titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Color(0xFFF1F5F9)),
-          bodyLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFFE0E0E0)),
-          bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xFFA0A0A0)),
-          labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.2),
+        cardColor: const Color(0xFF1E293B),
+        textTheme: GoogleFonts.cairoTextTheme(
+          const TextTheme(
+            displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.0, color: Color(0xFFF1F5F9)),
+            displayMedium: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: -0.5, color: Color(0xFFF1F5F9)),
+            headlineLarge: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5),
+            headlineMedium: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white),
+            headlineSmall: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white),
+            titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFFF1F5F9)),
+            titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Color(0xFFF1F5F9)),
+            titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFFCBD5E1)),
+            bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Color(0xFFE2E8F0), height: 1.5),
+            bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xFF94A3B8), height: 1.5),
+            bodySmall: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+            labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.2),
+            labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFFCBD5E1)),
+            labelSmall: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF94A3B8)),
+          ),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
@@ -220,24 +243,26 @@ class _DoctorAppState extends State<DoctorApp> {
         cardTheme: const CardThemeData(
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(20))),
-          color: Color(0xFF1E1E1E),
+          color: Color(0xFF1E293B),
         ),
-        inputDecorationTheme: const InputDecorationTheme(
+        inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: Color(0xFF1E1E1E),
-          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          fillColor: const Color(0xFF1E293B),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-            borderSide: BorderSide(color: Color(0xFF333333)),
+            borderRadius: const BorderRadius.all(Radius.circular(16)),
+            borderSide: const BorderSide(color: Color(0xFF334155)),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-            borderSide: BorderSide(color: Color(0xFF333333)),
+            borderRadius: const BorderRadius.all(Radius.circular(16)),
+            borderSide: const BorderSide(color: Color(0xFF334155)),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-            borderSide: BorderSide(color: Color(0xFF10B981), width: 2),
+            borderRadius: const BorderRadius.all(Radius.circular(16)),
+            borderSide: const BorderSide(color: Color(0xFF0D9488), width: 2),
           ),
+          hintStyle: GoogleFonts.cairo(fontSize: 14, color: const Color(0xFF64748B)),
+          labelStyle: GoogleFonts.cairo(fontSize: 14, color: const Color(0xFF94A3B8)),
         ),
         chipTheme: const ChipThemeData(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
@@ -246,7 +271,7 @@ class _DoctorAppState extends State<DoctorApp> {
         switchTheme: SwitchThemeData(
           thumbColor: const WidgetStatePropertyAll(Colors.white),
           trackColor: WidgetStateProperty.resolveWith((s) =>
-            s.contains(WidgetState.selected) ? const Color(0xFF10B981) : const Color(0xFF333333)),
+            s.contains(WidgetState.selected) ? const Color(0xFF0D9488) : const Color(0xFF334155)),
         ),
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {

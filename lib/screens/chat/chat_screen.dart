@@ -35,6 +35,9 @@ class _ChatScreenState extends State<ChatScreen> {
   final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
   bool _isSendingImage = false;
   late Stream<List<Message>> _messagesStream;
+  bool _hasText = false;
+  final FocusNode _focusNode = FocusNode();
+  bool _peerIsTyping = false;
 
   // Peer info
   String? _peerPhotoUrl;
@@ -55,6 +58,28 @@ class _ChatScreenState extends State<ChatScreen> {
       widget.isDoctorView ? 'doctor' : 'patient',
     );
     _messagesStream = _chatService.getChatMessages(widget.chat.id);
+
+    _messageController.addListener(() {
+      final hasText = _messageController.text.trim().isNotEmpty;
+      if (hasText != _hasText) setState(() => _hasText = hasText);
+
+      final myField = widget.isDoctorView ? 'doctorIsTyping' : 'patientIsTyping';
+      FirebaseFirestore.instance.collection('chats').doc(widget.chat.id)
+          .set({myField: _messageController.text.isNotEmpty}, SetOptions(merge: true));
+    });
+
+    _focusNode.addListener(() => setState(() {}));
+
+    FirebaseFirestore.instance
+        .collection('chats')
+        .doc(widget.chat.id)
+        .snapshots()
+        .listen((snap) {
+      if (!mounted) return;
+      final data = snap.data() ?? {};
+      final field = widget.isDoctorView ? 'patientIsTyping' : 'doctorIsTyping';
+      setState(() => _peerIsTyping = data[field] == true);
+    });
   }
 
   Future<void> _loadPeerPhoto() async {
@@ -364,6 +389,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _focusNode.dispose();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -597,51 +623,71 @@ class _ChatScreenState extends State<ChatScreen> {
             left: 16,
             right: 16,
           ),
-          child: ClipRRect(
-          borderRadius: BorderRadius.circular(30),
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF1E293B).withValues(alpha: 0.8)
-                    : Colors.white.withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.1)
-                      : Colors.grey.withValues(alpha: 0.2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_peerIsTyping)
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, bottom: 8),
+                  child: Row(
+                    children: [
+                      const TypingIndicator(),
+                      const SizedBox(width: 8),
+                      Text(isArabic ? 'يكتب...' : 'typing...', 
+                           style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                    ],
+                  ),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.add_rounded,
-                        color: Color(0xFF8B5CF6),
-                        size: 22,
-                      ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF1E293B).withValues(alpha: 0.8)
+                          : Colors.white.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(30),
+                      border: _focusNode.hasFocus
+                          ? Border.all(color: const Color(0xFF10B981), width: 1.5)
+                          : Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.1)
+                                  : Colors.grey.withValues(alpha: 0.2),
+                            ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
                     ),
-                    onPressed: _isSendingImage ? null : _showAttachmentOptions,
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      style: TextStyle(
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.add_rounded,
+                              color: Color(0xFF8B5CF6),
+                              size: 22,
+                            ),
+                          ),
+                          onPressed: _isSendingImage ? null : _showAttachmentOptions,
+                        ),
+                        Expanded(
+                          child: TextField(
+                            focusNode: _focusNode,
+                            controller: _messageController,
+                            style: TextStyle(
                         fontSize: 15,
                         color: isDark ? Colors.white : const Color(0xFF1E293B),
                         fontWeight: FontWeight.w500,
@@ -667,33 +713,54 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   GestureDetector(
                     onTap: _sendMessage,
-                    child: Container(
-                      margin: const EdgeInsets.only(left: 4, right: 4),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF3B82F6).withValues(alpha: 0.4),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.send_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 150),
+                      child: _hasText
+                          ? Container(
+                              key: const ValueKey('active'),
+                              margin: const EdgeInsets.only(left: 4, right: 4),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                                ),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF3B82F6).withValues(alpha: 0.4),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.send_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            )
+                          : Container(
+                              key: const ValueKey('inactive'),
+                              margin: const EdgeInsets.only(left: 4, right: 4),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.grey[800] : Colors.grey[200],
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.send_rounded,
+                                color: isDark ? Colors.grey[600] : Colors.grey[400],
+                                size: 20,
+                              ),
+                            ),
                     ),
                   ),
                 ],
               ),
             ),
           ),
+          ),
+            ],
           ),
         ),
       ),
@@ -744,7 +811,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-class _MessageBubble extends StatelessWidget {
+class _MessageBubble extends StatefulWidget {
   final Message message;
   final bool isPatient;
   final bool isArabic;
@@ -756,6 +823,38 @@ class _MessageBubble extends StatelessWidget {
     required this.isArabic,
     required this.isDark,
   });
+
+  @override
+  State<_MessageBubble> createState() => _MessageBubbleState();
+}
+
+class _MessageBubbleState extends State<_MessageBubble>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _popController;
+  late Animation<double> _scaleAnim;
+  late Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _popController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _scaleAnim = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _popController, curve: Curves.easeOutBack),
+    );
+    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _popController, curve: Curves.easeOut),
+    );
+    _popController.forward();
+  }
+
+  @override
+  void dispose() {
+    _popController.dispose();
+    super.dispose();
+  }
 
   /// Show full-screen image viewer. Supports both URL and legacy base64 data.
   void _showFullImage(BuildContext context, String imageData) {
@@ -774,7 +873,7 @@ class _MessageBubble extends StatelessWidget {
             ),
             Center(
               child: Hero(
-                tag: message.id,
+                tag: widget.message.id,
                 child: InteractiveViewer(
                   panEnabled: true,
                   minScale: 0.5,
@@ -822,117 +921,124 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment: isPatient
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Flexible(
-            child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.75,
-              ),
-              padding: EdgeInsets.all(message.isImage ? 4 : 16),
-              decoration: BoxDecoration(
-                gradient: isPatient
-                    ? const LinearGradient(
-                        colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-                      )
-                    : (isDark
-                          ? LinearGradient(
-                              colors: [
-                                const Color(0xFF1E293B),
-                                const Color(0xFF1E293B).withValues(alpha: 0.95),
-                              ],
-                            )
-                          : LinearGradient(
-                              colors: [Colors.white, Colors.grey.shade50],
-                            )),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(24),
-                  topRight: const Radius.circular(24),
-                  bottomLeft: Radius.circular(isPatient ? 24 : 6),
-                  bottomRight: Radius.circular(isPatient ? 6 : 24),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isPatient
-                        ? const Color(0xFF3B82F6).withValues(alpha: 0.3)
-                        : Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        alignment: widget.isPatient ? Alignment.bottomRight : Alignment.bottomLeft,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            mainAxisAlignment: widget.isPatient
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Flexible(
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.75,
                   ),
-                ],
-                border: !isPatient
-                    ? Border.all(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.05)
-                            : Colors.grey.withValues(alpha: 0.1),
-                      )
-                    : null,
-              ),
-              child: Column(
-                crossAxisAlignment: isPatient
-                    ? CrossAxisAlignment.end
-                    : CrossAxisAlignment.start,
-                children: [
-                  if (message.isImage && message.imageUrl != null)
-                    GestureDetector(
-                      onTap: () =>
-                          _showFullImage(context, message.imageUrl!),
-                      child: Hero(
-                        tag: message.id,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: _buildImageWidget(context, message.imageUrl!),
-                        ),
-                      ),
-                    )
-                  else
-                    Text(
-                      message.text,
-                      style: TextStyle(
-                        color: isPatient
-                            ? Colors.white
-                            : (isDark
-                                  ? Colors.grey[200]
-                                  : const Color(0xFF1E293B)),
-                        fontSize: 16,
-                        height: 1.4,
-                      ),
+                  padding: EdgeInsets.all(widget.message.isImage ? 4 : 16),
+                  decoration: BoxDecoration(
+                    gradient: widget.isPatient
+                        ? const LinearGradient(
+                            colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                          )
+                        : (widget.isDark
+                              ? LinearGradient(
+                                  colors: [
+                                    const Color(0xFF1E293B),
+                                    const Color(0xFF1E293B).withValues(alpha: 0.95),
+                                  ],
+                                )
+                              : LinearGradient(
+                                  colors: [Colors.white, Colors.grey.shade50],
+                                )),
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(24),
+                      topRight: const Radius.circular(24),
+                      bottomLeft: Radius.circular(widget.isPatient ? 24 : 6),
+                      bottomRight: Radius.circular(widget.isPatient ? 6 : 24),
                     ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        DateFormat('HH:mm').format(message.sentAt),
-                        style: TextStyle(
-                          color: isPatient
-                              ? Colors.white.withValues(alpha: 0.7)
-                              : Colors.grey.withValues(alpha: 0.8),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.isPatient
+                            ? const Color(0xFF3B82F6).withValues(alpha: 0.3)
+                            : Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
-                      if (isPatient && !message.isImage) ...[
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.done_all_rounded,
-                          size: 14,
-                          color: Colors.white.withValues(alpha: 0.7),
+                    ],
+                    border: !widget.isPatient
+                        ? Border.all(
+                            color: widget.isDark
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : Colors.grey.withValues(alpha: 0.1),
+                          )
+                        : null,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: widget.isPatient
+                        ? CrossAxisAlignment.end
+                        : CrossAxisAlignment.start,
+                    children: [
+                      if (widget.message.isImage && widget.message.imageUrl != null)
+                        GestureDetector(
+                          onTap: () =>
+                              _showFullImage(context, widget.message.imageUrl!),
+                          child: Hero(
+                            tag: widget.message.id,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: _buildImageWidget(context, widget.message.imageUrl!),
+                            ),
+                          ),
+                        )
+                      else
+                        Text(
+                          widget.message.text,
+                          style: TextStyle(
+                            color: widget.isPatient
+                                ? Colors.white
+                                : (widget.isDark
+                                      ? Colors.grey[200]
+                                      : const Color(0xFF1E293B)),
+                            fontSize: 16,
+                            height: 1.4,
+                          ),
                         ),
-                      ],
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            DateFormat('HH:mm').format(widget.message.sentAt),
+                            style: TextStyle(
+                              color: widget.isPatient
+                                  ? Colors.white.withValues(alpha: 0.7)
+                                  : Colors.grey.withValues(alpha: 0.8),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (widget.isPatient && !widget.message.isImage) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.done_all_rounded,
+                              size: 14,
+                              color: Colors.white.withValues(alpha: 0.7),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -981,6 +1087,60 @@ class _MessageBubble extends StatelessWidget {
               ),
             )
           : Image.memory(base64Decode(imageData), fit: BoxFit.cover),
+    );
+  }
+}
+
+/// Animated typing indicator with bouncing dots
+class TypingIndicator extends StatefulWidget {
+  const TypingIndicator({super.key});
+  @override
+  State<TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<TypingIndicator>
+    with TickerProviderStateMixin {
+  late List<AnimationController> _dotControllers;
+
+  @override
+  void initState() {
+    super.initState();
+    _dotControllers = List.generate(3, (i) {
+      final c = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 400),
+      );
+      Future.delayed(Duration(milliseconds: i * 150), () {
+        if (mounted) c.repeat(reverse: true);
+      });
+      return c;
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final c in _dotControllers) c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (i) {
+        return AnimatedBuilder(
+          animation: _dotControllers[i],
+          builder: (_, __) => Container(
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            width: 8,
+            height: 8 + (_dotControllers[i].value * 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        );
+      }),
     );
   }
 }

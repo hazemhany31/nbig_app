@@ -47,6 +47,7 @@ class _ChatScreenState extends State<ChatScreen> {
   DateTime? _lastMessageTime;
   int _rapidMessageCount = 0;
   Timer? _typingDebounce;
+  StreamSubscription<DocumentSnapshot>? _peerTypingSubscription;
 
   @override
   void initState() {
@@ -76,7 +77,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _focusNode.addListener(() => setState(() {}));
 
-    FirebaseFirestore.instance
+    _peerTypingSubscription = FirebaseFirestore.instance
         .collection('chats')
         .doc(widget.chat.id)
         .snapshots()
@@ -396,6 +397,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _typingDebounce?.cancel();
+    _peerTypingSubscription?.cancel();
     final myField = widget.isDoctorView ? 'doctorIsTyping' : 'patientIsTyping';
     FirebaseFirestore.instance.collection('chats').doc(widget.chat.id)
         .set({myField: false}, SetOptions(merge: true));

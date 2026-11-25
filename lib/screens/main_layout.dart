@@ -156,6 +156,12 @@ class _MainLayoutState extends State<MainLayout> {
   }
 
   @override
+  void dispose() {
+    _homeScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final List<Widget> pages = [
       HomeScreen(
@@ -4440,11 +4446,18 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
   List<ActiveMedication> _activeMedications = [];
   int _doneMedsCount = 0;
   bool _isLoading = true;
+  StreamSubscription<List<model.Appointment>>? _appointmentsSubscription;
 
   @override
   void initState() {
     super.initState();
     _fetchUserData();
+  }
+
+  @override
+  void dispose() {
+    _appointmentsSubscription?.cancel();
+    super.dispose();
   }
 
   void _fetchUserData() {
@@ -4454,7 +4467,7 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
       return;
     }
 
-    AppointmentService().getPatientAppointments(user.uid).listen((
+    _appointmentsSubscription = AppointmentService().getPatientAppointments(user.uid).listen((
       appointments,
     ) {
       if (!mounted) return;

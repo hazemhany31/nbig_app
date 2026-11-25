@@ -18,6 +18,11 @@ service cloud.firestore {
       return isAuthenticated() && exists(/databases/$(database)/documents/doctors/$(request.auth.uid));
     }
 
+    function isVerifiedDoctor() {
+      return isDoctor() &&
+        get(/databases/$(database)/documents/doctors/$(request.auth.uid)).data.isVerified == true;
+    }
+
     // ==========================================
     // 1. Chats Collection
     // ==========================================
@@ -56,32 +61,33 @@ service cloud.firestore {
     match /doctors/{doctorId} {
       allow read: if isAuthenticated();
       
-      // Allow doctor to update their own profile, OR allow any authenticated user to update ONLY specific non-sensitive fields
-      // Matches doctor-app rules: prevents patients from overwriting doctor profile data
-      allow update: if isUser(doctorId) || (
+      // Allow doctor to update their own profile (excluding isVerified status), OR allow any authenticated user to update ONLY specific non-sensitive fields
+      allow update: if (isUser(doctorId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isVerified'])) || (
         isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['patientsCount', 'rating', 'totalReviews'])
       );
       
       allow delete: if isUser(doctorId);
-      allow create: if isUser(doctorId);
+      // Doctors can register their own profile but must start as unverified
+      allow create: if isUser(doctorId) && (!request.resource.data.containsKey('isVerified') || request.resource.data.isVerified == false);
     }
     
     // ==========================================
     // 3. Appointments Collection
     // ==========================================
     match /appointments/{appointmentId} {
-      // Must be the involved patient or doctor
+      // Allow read if user is the patient or the doctor involved
       allow read: if isAuthenticated() && (
         resource.data.patientId == request.auth.uid || 
         resource.data.doctorId == request.auth.uid ||
         resource.data.doctorUserId == request.auth.uid
       );
       
-      // Must be involved to update
+      // Must be involved to update, or the appointment is cancelled (so anyone can claim it)
       allow update: if isAuthenticated() && (
         resource.data.patientId == request.auth.uid || 
         resource.data.doctorId == request.auth.uid ||
-        resource.data.doctorUserId == request.auth.uid
+        resource.data.doctorUserId == request.auth.uid ||
+        (resource.data.status == 'cancelled' && request.resource.data.patientId == request.auth.uid)
       );
       
       // Anyone authenticated can create if they set themselves as patient
@@ -100,16 +106,18 @@ service cloud.firestore {
     match /users/{userId} {
       // Users can read their own info, or doctors can read user profiles.
       allow read: if isUser(userId) || isDoctor(); 
-      allow update: if isUser(userId);
-      allow create: if isUser(userId);
+      allow update: if isUser(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isVerified']));
+      allow create: if isUser(userId) &&
+                    (!request.resource.data.containsKey('isVerified') || request.resource.data.isVerified == false) &&
+                    (!request.resource.data.containsKey('role') || request.resource.data.role == 'patient');
       allow delete: if isUser(userId);
 
       // --- Medical Records Subcollection ---
       match /medical_records/{recordId} {
         // Patient can read/write their own records.
-        // Doctors can read/write any medical records for now.
-        allow read: if isUser(userId) || isDoctor();
-        allow write: if isUser(userId) || isDoctor();
+        // Verified doctors can read medical records.
+        allow read: if isUser(userId) || isVerifiedDoctor();
+        allow write: if isUser(userId);
       }
     }
 
@@ -131,11 +139,11 @@ service cloud.firestore {
 
     match /notifications/{notificationId} {
       // A user can read, update, or delete only their own notifications.
-      // Use 'recipientId' as it matches the application's query filter.
       allow read, update, delete: if isAuthenticated() && resource.data.recipientId == request.auth.uid;
       // Anyone can create a notification for someone else.
       allow create: if isAuthenticated();
     }
+
     // ==========================================
     // 7. Donations Collection
     // ==========================================
@@ -146,11 +154,11 @@ service cloud.firestore {
       // All authenticated users can create donations
       allow create: if isAuthenticated();
       
-      // Allow update if user owns the donation OR is a doctor (for recommendations)
+      // Allow update if user owns the donation (excluding isRecommended status) OR is a doctor (only for recommendations)
       allow update: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || 
-        resource.data.donorId == request.auth.uid ||
-        isDoctor()
+        (resource.data.userId == request.auth.uid && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isRecommended'])) ||
+        (resource.data.donorId == request.auth.uid && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isRecommended'])) ||
+        (isDoctor() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRecommended']))
       );
       
       // Allow delete if user owns the donation

@@ -12,20 +12,48 @@ service firebase.storage {
       // Users can only write to their own profile image folder
       allow write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Users profile picture under users/ path
+    match /users/{userId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
     
-    // Medical Records Uploads - Users can upload their own medical records
+    // Medical Records Uploads - Patient can read/write, verified doctors can read
+    match /medical_records/{patientId}/{allPaths=**} {
+      allow read: if request.auth != null && (
+        request.auth.uid == patientId || (
+          firestore.exists(/databases/(default)/documents/doctors/$(request.auth.uid)) &&
+          firestore.get(/databases/(default)/documents/doctors/$(request.auth.uid)).data.isVerified == true
+        )
+      );
+      allow write: if request.auth != null && request.auth.uid == patientId;
+    }
+
+    // Legacy uploads path
     match /uploads/{userId}/{allPaths=**} {
-      // Allow read if user is the owner
       allow read: if request.auth != null && request.auth.uid == userId;
-      
-      // Allow write if user is the owner
       allow write: if request.auth != null && request.auth.uid == userId;
     }
     
     // Doctor Profile Images and Clinic Photos
-    match /doctors/{allPaths=**} {
+    match /doctors/{doctorId}/{allPaths=**} {
       allow read: if true; // anyone can see doctor photos
-      allow write: if request.auth != null; // authenticated doctors can upload their photos
+      allow write: if request.auth != null && request.auth.uid == doctorId; // only that doctor can write
+    }
+
+    // Chat Attachments - secure path for peer-to-peer image transfers
+    match /chats/{chatId}/{allPaths=**} {
+      allow read, write: if request.auth != null && (
+        firestore.get(/databases/(default)/documents/chats/$(chatId)).data.patientId == request.auth.uid ||
+        firestore.get(/databases/(default)/documents/chats/$(chatId)).data.doctorUserId == request.auth.uid
+      );
+    }
+
+    // Donations Uploads
+    match /donations/{filename} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && filename.startsWith('donation_' + request.auth.uid + '_');
     }
   }
 }

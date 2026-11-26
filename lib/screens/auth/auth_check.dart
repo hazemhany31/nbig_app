@@ -5,6 +5,7 @@ import '../../services/auth_service.dart';
 import '../main_layout.dart';
 import '../doctor/doctor_home_shell.dart';
 import 'onboarding_screen.dart';
+import 'biometric_gate.dart';
 
 // === AUTH CHECK ===
 class AuthCheck extends ConsumerWidget {
@@ -44,10 +45,13 @@ class AuthCheck extends ConsumerWidget {
               );
             }
 
-            return MainLayout(
-              userName: userName,
-              toggleTheme: toggleTheme,
-              isDark: isDark,
+            return BiometricGate(
+              uid: user.uid,
+              child: MainLayout(
+                userName: userName,
+                toggleTheme: toggleTheme,
+                isDark: isDark,
+              ),
             );
           },
           loading: () => _buildShimmerLoading(context),

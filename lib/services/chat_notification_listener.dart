@@ -1,3 +1,4 @@
+import 'notification_presenter.dart';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -80,10 +81,18 @@ class ChatNotificationListener {
 
       debugPrint('📨 ChatNotificationListener: showing → $title');
 
-      // عرض الإشعار محلياً
-      await PushNotificationService().showManualNotification(
-        title,
-        body.isNotEmpty ? body : '...',
+      // عرض الإشعار محلياً حسب حالة التطبيق (بدون تكرار)
+      final ref = change.doc.reference;
+      NotificationPresenter.present(
+        docId: docId,
+        sentByFcm: () async {
+          final fresh = await ref.get(const GetOptions(source: Source.server));
+          return (fresh.data() as Map<String, dynamic>?)?['fcmSent'] == true;
+        },
+        show: () => PushNotificationService().showManualNotification(
+          title,
+          body.isNotEmpty ? body : '...',
+        ),
       );
 
       // نعلّم الإشعار كـ delivered عشان ما يجيش تاني

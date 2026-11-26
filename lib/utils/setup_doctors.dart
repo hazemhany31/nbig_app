@@ -20,7 +20,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Magdy Mohammad Fakhr Hussein',
       'email': 'dr.magdy@nbig.com',
-      'password': 'Magdy@2024',
       'specialty': 'Biotechnology & Genetic Engineering',
       'yearsOfExperience': 15,
       'rating': 4.8,
@@ -40,7 +39,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Shahd Al-Hamdani',
       'email': 'dr.shahd@nbig.com',
-      'password': 'Shahd@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 11,
       'rating': 4.9,
@@ -56,7 +54,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Ahmed Jameel',
       'email': 'dr.ahmed@nbig.com',
-      'password': 'Ahmed@2024',
       'specialty': 'Dentistry & Dental Surgery',
       'yearsOfExperience': 13,
       'rating': 4.7,
@@ -75,7 +72,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Youssef Taher Mohammad',
       'email': 'dr.youssef@nbig.com',
-      'password': 'Youssef@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 5,
       'rating': 4.6,
@@ -87,7 +83,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Ahmed Khaled',
       'email': 'dr.ahmedkhaled@nbig.com',
-      'password': 'AhmedK@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 10,
       'rating': 4.9,
@@ -102,7 +97,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Adham Ezz El-Din',
       'email': 'dr.adham@nbig.com',
-      'password': 'Adham@2024',
       'specialty': 'Neurology',
       'yearsOfExperience': 12,
       'rating': 5.0,
@@ -123,7 +117,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Yahya El-Adawy Shousha',
       'email': 'dr.yahya@nbig.com',
-      'password': 'Yahya@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -135,7 +128,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Mohamed Sabry',
       'email': 'dr.mohamed.sabry@nbig.com',
-      'password': 'Mohamed@2024',
       'specialty': 'Ophthalmology',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -147,7 +139,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Maher Hassan Aglan',
       'email': 'dr.maher@nbig.com',
-      'password': 'Maher@2024',
       'specialty': 'General Surgery',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -159,7 +150,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Mohamed Sayed Taha Sawi',
       'email': 'dr.mohamed.sawi@nbig.com',
-      'password': 'Mohamed@2024',
       'specialty': 'Internal Medicine',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -171,7 +161,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Hazem Abdelrahman',
       'email': 'dr.hazem@nbig.com',
-      'password': 'Hazem@2024',
       'specialty': 'Internal Medicine',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -183,7 +172,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Heba Farid Ali',
       'email': 'dr.heba@nbig.com',
-      'password': 'Heba@2024',
       'specialty': 'Investment',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -195,7 +183,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Ashraf Mohamed Thabet',
       'email': 'dr.ashraf@nbig.com',
-      'password': 'Ashraf@2024',
       'specialty': 'Internal Medicine',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -207,7 +194,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Shawky Abdelrahman',
       'email': 'dr.shawky@nbig.com',
-      'password': 'Shawky@2024',
       'specialty': 'Internal Medicine',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -219,7 +205,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Samira Shaaban',
       'email': 'dr.samira@nbig.com',
-      'password': 'Samira@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -231,7 +216,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Hoda Ali El-Sayed',
       'email': 'dr.hoda@nbig.com',
-      'password': 'Hoda@2024',
       'specialty': 'Orthopedics',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -243,7 +227,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Sameh Abdel Tawab',
       'email': 'dr.sameh@nbig.com',
-      'password': 'Sameh@2024',
       'specialty': 'Ophthalmology',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -255,7 +238,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Mohamed Ali Saleh',
       'email': 'dr.mohamed.saleh@nbig.com',
-      'password': 'Mohamed@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -267,7 +249,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Taher Mohamed Hassan Eissa',
       'email': 'dr.taher@nbig.com',
-      'password': 'Taher@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -279,7 +260,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Mohamed Nada Abdel Naby',
       'email': 'dr.mohamed.nada@nbig.com',
-      'password': 'Mohamed@2024',
       'specialty': 'Internal Medicine',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -291,7 +271,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Atef',
       'email': 'dr.atef@nbig.com',
-      'password': 'Atef@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -303,7 +282,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Ali Salah',
       'email': 'dr.ali.salah@nbig.com',
-      'password': 'Ali@2024',
       'specialty': 'Internal Medicine',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -315,7 +293,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Mohamed Mostafa',
       'email': 'dr.mohamed.mostafa@nbig.com',
-      'password': 'Mohamed@2024',
       'specialty': 'Obstetrics & Gynecology',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -327,7 +304,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Ahmed Shawkat Mohamed',
       'email': 'dr.ahmed.shawkat@nbig.com',
-      'password': 'Ahmed@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -339,7 +315,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Ahmed Abdel Raouf',
       'email': 'dr.ahmed.raouf@nbig.com',
-      'password': 'Ahmed@2024',
       'specialty': 'Investment',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -351,7 +326,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Nadia El-Meligy',
       'email': 'dr.nadia@nbig.com',
-      'password': 'Nadia@2024',
       'specialty': 'Dermatology',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -363,7 +337,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Suhaila Ahmed Mahmoud',
       'email': 'dr.suhaila@nbig.com',
-      'password': 'Suhaila@2024',
       'specialty': 'Internal Medicine',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -375,7 +348,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Shahd Sarmad',
       'email': 'dr.shahd.sarmad@nbig.com',
-      'password': 'Shahd@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -387,7 +359,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Ahmed Mohamed Thabet',
       'email': 'dr.ahmed.thabet@nbig.com',
-      'password': 'Ahmed@2024',
       'specialty': 'Dermatology',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -399,7 +370,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Mowafi Mohamed Dahab',
       'email': 'dr.mowafi@nbig.com',
-      'password': 'Mowafi@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -411,7 +381,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Alaa Abdelhamid Sabry',
       'email': 'dr.alaa@nbig.com',
-      'password': 'Alaa@2024',
       'specialty': 'General Medicine',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -423,7 +392,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Afaf Ahmed',
       'email': 'dr.afaf@nbig.com',
-      'password': 'Afaf@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -435,7 +403,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Ghada Abdelmoneim',
       'email': 'dr.ghada@nbig.com',
-      'password': 'Ghada@2024',
       'specialty': 'Dermatology & Cosmetology',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -447,7 +414,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Mohamed Atef Abdelaziz',
       'email': 'dr.mohamed.atef@nbig.com',
-      'password': 'Mohamed@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -459,7 +425,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Waleed Abdelmoneim',
       'email': 'dr.waleed@nbig.com',
-      'password': 'Waleed@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -471,7 +436,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Sahar Abdelhalim',
       'email': 'dr.sahar@nbig.com',
-      'password': 'Sahar@2024',
       'specialty': 'Dentistry',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -483,7 +447,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Asmaa Mohamed Maher',
       'email': 'dr.asmaa@nbig.com',
-      'password': 'Asmaa@2024',
       'specialty': 'General Practice',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -495,7 +458,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Reda Abdel-Aal',
       'email': 'dr.reda@nbig.com',
-      'password': 'Reda@2024',
       'specialty': 'ENT',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -507,7 +469,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Essam Abu El-Makarim',
       'email': 'dr.essam@nbig.com',
-      'password': 'Essam@2024',
       'specialty': 'Physical Therapy',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -519,7 +480,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Khaled',
       'email': 'dr.khaled@nbig.com',
-      'password': 'Khaled@2024',
       'specialty': 'Investment',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -531,7 +491,6 @@ class DoctorSetupScript {
     {
       'name': 'Dr. Alia',
       'email': 'dr.alia@nbig.com',
-      'password': 'Alia@2024',
       'specialty': 'Psychiatry',
       'yearsOfExperience': 5,
       'rating': 4.5,
@@ -543,12 +502,16 @@ class DoctorSetupScript {
   ];
 
   /// تشغيل السكريبت لإضافة كل الدكاترة
-  Future<void> setupAllDoctors() async {
+  Future<void> setupAllDoctors(Map<String, String> passwordsByEmail) async {
     debugPrint('🚀 بدء إضافة الدكاترة...\n');
 
     for (var doctorData in doctors) {
       try {
-        await _createDoctorAccount(doctorData);
+        final pw = passwordsByEmail[doctorData['email']];
+        if (pw == null || pw.length < 12) {
+          throw Exception('كلمة مرور قوية (12+ حرف) مطلوبة لكل دكتور');
+        }
+        await _createDoctorAccount(doctorData, pw);
         debugPrint('✅ تم إضافة: ${doctorData['name']}\n');
       } catch (e) {
         debugPrint('❌ فشل إضافة ${doctorData['name']}: $e\n');
@@ -559,11 +522,12 @@ class DoctorSetupScript {
   }
 
   /// إضافة دكتور واحد
-  Future<void> _createDoctorAccount(Map<String, dynamic> doctorData) async {
+  Future<void> _createDoctorAccount(
+      Map<String, dynamic> doctorData, String password) async {
     // 1. إنشاء حساب في Authentication
     UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
       email: doctorData['email'],
-      password: doctorData['password'],
+      password: password,
     );
 
     final userId = userCredential.user!.uid;
@@ -595,18 +559,6 @@ class DoctorSetupScript {
     });
     debugPrint('  🩺 تم إضافة doctor document');
   }
-
-  /// طباعة بيانات تسجيل الدخول
-  void printCredentials() {
-    debugPrint('\n📋 بيانات تسجيل الدخول للدكاترة:\n');
-    debugPrint('=' * 60);
-    for (var doctor in doctors) {
-      debugPrint('الاسم: ${doctor['name']}');
-      debugPrint('Email: ${doctor['email']}');
-      debugPrint('Password: ${doctor['password']}');
-      debugPrint('-' * 60);
-    }
-  }
 }
 
 /// مثال على الاستخدام:
@@ -616,6 +568,5 @@ class DoctorSetupScript {
 ///   await Firebase.initializeApp();
 ///
 ///   final script = DoctorSetupScript();
-///   await script.setupAllDoctors();
-///   script.printCredentials();
+///   await script.setupAllDoctors({'doctor@example.com': '<strong-password>'});
 /// }

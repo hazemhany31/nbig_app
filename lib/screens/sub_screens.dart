@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/appointment_flow.dart' show mergeBookedTimes;
 import '../services/database_helper.dart';
 import '../services/hybrid_doctor_service.dart';
 import '../models/doctor_model.dart'; // Added import
@@ -1580,19 +1581,34 @@ class _AppointmentScreenState extends State<AppointmentScreen> {
     List<String> firestoreBooked = [];
     try {
       final String firestoreDateStr = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
-      final snapshot = await FirebaseFirestore.instance
-          .collection('appointments')
-          .where('doctorId', isEqualTo: widget.doctorId)
-          .where('date', isEqualTo: firestoreDateStr)
-          .where('status', isNotEqualTo: 'cancelled')
-          .get();
-          
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-        if (data['time'] != null) {
-          firestoreBooked.add(data['time'].toString());
-        }
+      final fs = FirebaseFirestore.instance;
+      // Occupancy docs (server-maintained). Missing until that backend exists.
+      var slotDocs = <Map<String, dynamic>>[];
+      try {
+        final slots = await fs
+            .collection('appointment_slots')
+            .where('doctorId', isEqualTo: widget.doctorId)
+            .where('date', isEqualTo: firestoreDateStr)
+            .where('booked', isEqualTo: true)
+            .get();
+        slotDocs = slots.docs.map((d) => d.data()).toList();
+      } catch (e) {
+        debugPrint("Slots unavailable: $e");
       }
+      // Appointment docs: works while rules are open; denied under strict rules.
+      var apptDocs = <Map<String, dynamic>>[];
+      try {
+        final snapshot = await fs
+            .collection('appointments')
+            .where('doctorId', isEqualTo: widget.doctorId)
+            .where('date', isEqualTo: firestoreDateStr)
+            .where('status', isNotEqualTo: 'cancelled')
+            .get();
+        apptDocs = snapshot.docs.map((d) => d.data()).toList();
+      } catch (e) {
+        debugPrint("Appointment list unavailable: $e");
+      }
+      firestoreBooked = mergeBookedTimes(slotDocs: slotDocs, appointmentDocs: apptDocs);
     } catch(e) {
       debugPrint("Error fetching booked times: $e");
     }

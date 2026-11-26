@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use, unused_field
 
+import '../widgets/biometric_toggle_tile.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -29,6 +30,7 @@ import 'settings_screens.dart';
 import 'auth/login_screen.dart';
 import 'emergency_alert_screen.dart';
 import 'specialties_list_screen.dart';
+import 'medical_records_screen.dart';
 import 'blog_screens.dart';
 import '../services/app_notification_service.dart';
 import '../services/medication_tracking_service.dart';
@@ -3750,6 +3752,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       isDark: isDark,
                       color: const Color(0xFF0EA5E9),
                     ),
+                    if (FirebaseAuth.instance.currentUser != null)
+                      BiometricToggleTile(
+                        uid: FirebaseAuth.instance.currentUser!.uid,
+                        isArabic: isArabic,
+                      ),
                     _buildProfileOption(
                       Icons.person_outline_rounded,
                       isArabic ? 'تعديل الحساب' : 'Edit Profile',
@@ -3774,6 +3781,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildSectionHeader(isArabic ? 'طبي' : 'Medical', isDark),
                   const SizedBox(height: 8),
                   _buildSettingsCard([
+                    _buildProfileOption(
+                      Icons.folder_shared_rounded,
+                      isArabic ? 'السجلات الطبية' : 'Medical Records',
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const MedicalRecordsScreen(),
+                        ),
+                      ),
+                      isDark: isDark,
+                      color: const Color(0xFF10B981),
+                    ),
                     _buildProfileOption(
                       Icons.upload_file_rounded,
                       isArabic ? 'رفع ملفات طبية' : 'Upload Medical Records',

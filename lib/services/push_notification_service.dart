@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'notification_dedupe.dart';
 
 // Top-level function for background messages
 // IMPORTANT: This runs in a separate ISOLATE.
@@ -15,7 +16,10 @@ import 'package:flutter/foundation.dart';
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('📲 [BG] NBIG FCM received: ${message.messageId}');
 
-  // Extract title and body from notification or data payload
+  // رسائل فيها notification payload النظام بيعرضها لوحده، لو عرضناها تاني هتتكرر
+  if (message.notification != null) return;
+
+  // Extract title and body from data payload
   final String title =
       message.notification?.title ?? message.data['title'] ?? 'إشعار جديد';
   final String body =
@@ -138,7 +142,9 @@ class PushNotificationService {
           message.notification != null ||
           message.data.containsKey('title') ||
           message.data.containsKey('body');
-      if (hasVisual) {
+      // لو نفس الإشعار اتعرض من الـ listener (مستند notifications) ما نكررهوش،
+      // ولو الـ listener ما اشتغلش لأي سبب، رسالة FCM هي اللي بتعرضه.
+      if (hasVisual && NotificationDedupe.claim(message.data['notificationId'])) {
         _showLocalNotification(message);
       }
     });

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'notification_presenter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -41,7 +42,15 @@ class AppNotificationService {
           final title = data['title'] ?? 'تحديث جديد';
           final body = data['body'] ?? 'لديك إشعار جديد';
 
-          NotificationService().showNotification(title, body);
+          NotificationPresenter.present(
+            docId: docId,
+            sentByFcm: () async {
+              final fresh = await doc.reference
+                  .get(const GetOptions(source: Source.server));
+              return (fresh.data() as Map<String, dynamic>?)?['fcmSent'] == true;
+            },
+            show: () async => NotificationService().showNotification(title, body),
+          );
 
           final type = data['type'] as String?;
           final apptId = data['appointmentId'] as String?;

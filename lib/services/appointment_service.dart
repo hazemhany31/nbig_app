@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/appointment_model.dart';
+import 'appointment_flow.dart';
 
 /// Service for managing appointments in Firestore
 class AppointmentService {
@@ -66,23 +67,30 @@ class AppointmentService {
         'expiresAt': Timestamp.fromDate(expiresAtDate), // Automatically cancel after 1 hour if not confirmed
       };
 
-      await _firestore.runTransaction((transaction) async {
-        final snapshot = await transaction.get(docRef);
+      await bookSlotFlow(
+        transactional: () => _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(docRef);
 
-        if (snapshot.exists) {
-          final data = snapshot.data();
-          // If the slot is cancelled, we allow re-booking
-          if (data != null && data['status'] == 'cancelled') {
-            transaction.update(docRef, appointmentData);
+          if (snapshot.exists) {
+            final data = snapshot.data();
+            // If the slot is cancelled, we allow re-booking
+            if (data != null && data['status'] == 'cancelled') {
+              transaction.update(docRef, appointmentData);
+            } else {
+              // Slot is taken! Throw an exception to stop transaction
+              throw const SlotTakenException();
+            }
           } else {
-            // Slot is taken! Throw an exception to stop transaction
-            throw Exception('عذراً، هذا الموعد تم حجزه للتو. يرجى اختيار موعد آخر.');
+            // Normal booking creation
+            transaction.set(docRef, appointmentData);
           }
-        } else {
-          // Normal booking creation
-          transaction.set(docRef, appointmentData);
-        }
-      }).timeout(const Duration(seconds: 15));
+        }).timeout(const Duration(seconds: 15)),
+        // Used only when stricter security rules hide another patient's
+        // appointment from the transaction read. The rules then decide: the
+        // write succeeds only for a free (cancelled) slot.
+        blindSet: () => docRef.set(appointmentData).timeout(const Duration(seconds: 15)),
+        isPermissionDenied: (e) => e is FirebaseException && e.code == 'permission-denied',
+      );
 
       // 3. Trigger notification for the doctor
       await _triggerDoctorNotification(
@@ -242,56 +250,44 @@ class AppointmentService {
   }
 
   /// Cancel an appointment (patient side)
-  Future<void> cancelAppointment(String appointmentId) async {
-    try {
-      // 1. Handle notifications cleanup
-      final notifs = await _firestore
-          .collection('notifications')
-          .where('appointmentId', isEqualTo: appointmentId)
-          .get();
-      
-      for (var doc in notifs.docs) {
-        await doc.reference.update({
-          'status': 'read', 
-          'type': 'cancelled_appointment',
-          'body': 'تم إلغاء هذا الموعد بواسطة المريض',
-        });
-      }
-
-      // 2. Update appointment status
-      await _firestore.collection('appointments').doc(appointmentId).update({
+  Future<void> cancelAppointment(String appointmentId) {
+    return cancelAppointmentFlow(
+      updateAppointment: () => _firestore.collection('appointments').doc(appointmentId).update({
         'status': 'cancelled',
         'cancelledBy': 'patient',
         'cancelReason': 'ألغيت من المريض',
         'cancelledAt': FieldValue.serverTimestamp(),
-      });
-// debugPrint('✅ Appointment cancelled');
-    } catch (e) {
-// debugPrint('❌ Error cancelling appointment: $e');
-      rethrow;
-    }
+      }),
+      cleanupNotifications: () async {
+        final notifs = await _firestore
+            .collection('notifications')
+            .where('appointmentId', isEqualTo: appointmentId)
+            .get();
+        for (var doc in notifs.docs) {
+          await doc.reference.update({
+            'status': 'read',
+            'type': 'cancelled_appointment',
+            'body': 'تم إلغاء هذا الموعد بواسطة المريض',
+          });
+        }
+      },
+    );
   }
 
   /// Delete an appointment completely (patient side)
-  Future<void> deleteAppointment(String appointmentId) async {
-    try {
-      // 1. Delete associated notifications
-      final notifs = await _firestore
-          .collection('notifications')
-          .where('appointmentId', isEqualTo: appointmentId)
-          .get();
-      
-      for (var doc in notifs.docs) {
-        await doc.reference.delete();
-      }
-
-      // 2. Delete the appointment itself
-      await _firestore.collection('appointments').doc(appointmentId).delete();
-// debugPrint('✅ Appointment deleted from Firestore');
-    } catch (e) {
-// debugPrint('❌ Error deleting appointment: $e');
-      rethrow;
-    }
+  Future<void> deleteAppointment(String appointmentId) {
+    return deleteAppointmentFlow(
+      cleanupNotifications: () async {
+        final notifs = await _firestore
+            .collection('notifications')
+            .where('appointmentId', isEqualTo: appointmentId)
+            .get();
+        for (var doc in notifs.docs) {
+          await doc.reference.delete();
+        }
+      },
+      deleteAppointment: () => _firestore.collection('appointments').doc(appointmentId).delete(),
+    );
   }
 
   /// Send consultation report to doctor after appointment

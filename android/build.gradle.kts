@@ -3,6 +3,16 @@ allprojects {
         google()
         mavenCentral()
     }
+    
+    // Fallback for older plugins like file_picker that crash without compileSdk
+    afterEvaluate {
+        if (plugins.hasPlugin("com.android.library")) {
+            val androidExt = extensions.findByName("android") as? com.android.build.gradle.LibraryExtension
+            if (androidExt != null && androidExt.compileSdk == null) {
+                androidExt.compileSdk = 35
+            }
+        }
+    }
 }
 
 val newBuildDir: Directory =

@@ -54,10 +54,16 @@ class ChatService {
     return _firestore
         .collection('chats')
         .where('patientId', isEqualTo: patientId)
-        .orderBy('lastMessageTime', descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs.map((doc) => Chat.fromFirestore(doc)).toList();
+          final list =
+              snapshot.docs.map((doc) => Chat.fromFirestore(doc)).toList();
+          list.sort((a, b) {
+            final ta = a.lastMessageTime ?? a.createdAt;
+            final tb = b.lastMessageTime ?? b.createdAt;
+            return tb.compareTo(ta);
+          });
+          return list;
         });
   }
 

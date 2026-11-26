@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -265,7 +266,7 @@ class MedicationTrackingService {
       }
     }
 
-    return {
+    final result = {
       'streak': streak,
       'weekly': weeklyAdherence,
       'monthly': monthlyAdherence,
@@ -273,5 +274,61 @@ class MedicationTrackingService {
       'todayTotal': todayTotalDoses,
       'allCompleted': allCompletedToday,
     };
+
+    final currentUser = _auth.currentUser;
+    if (currentUser != null) {
+      syncDailyStreakToFirestore(
+        patientId: currentUser.uid,
+        streak: streak,
+        allCompletedToday: allCompletedToday,
+      ).catchError((e) {
+        debugPrint('⚠️ Daily streak sync error: $e');
+      });
+    }
+
+    return result;
+  }
+
+  /// Persist streak count and last completed date to Firestore `users/$patientId`
+  /// providing cross-device synchronization and realtime updates without duplicate increments.
+  Future<void> syncDailyStreakToFirestore({
+    required String patientId,
+    required int streak,
+    required bool allCompletedToday,
+  }) async {
+    if (patientId.isEmpty) return;
+    final userRef = _firestore.collection('users').doc(patientId);
+
+    try {
+      final now = DateTime.now();
+      final todayKey = getDateKey(now);
+
+      final doc = await userRef.get(const GetOptions(source: Source.server)).catchError((_) => userRef.get());
+      final data = doc.data() ?? {};
+      final lastStreakDate = data['lastStreakDate']?.toString() ?? '';
+
+      final updates = <String, dynamic>{
+        'dailyStreak': streak,
+        'lastStreakCheck': FieldValue.serverTimestamp(),
+      };
+
+      if (allCompletedToday && lastStreakDate != todayKey) {
+        updates['lastStreakDate'] = todayKey;
+      }
+
+      await userRef.set(updates, SetOptions(merge: true));
+      debugPrint('🔥 Daily streak synced to Firestore for patient $patientId: $streak (completedToday=$allCompletedToday)');
+    } catch (e) {
+      debugPrint('⚠️ Error syncing daily streak to Firestore: $e');
+    }
+  }
+
+  /// Realtime Stream of Daily Streak from Firestore for live UI updates across devices.
+  Stream<int> getDailyStreakStream(String patientId) {
+    if (patientId.isEmpty) return Stream.value(0);
+    return _firestore.collection('users').doc(patientId).snapshots().map((snapshot) {
+      if (!snapshot.exists) return 0;
+      return (snapshot.data()?['dailyStreak'] as num?)?.toInt() ?? 0;
+    });
   }
 }

@@ -202,7 +202,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
     } catch (e) {
       if (mounted) {
         setState(() => _isVerifying = false);
-        _showError('فشل التحقق: $e');
+        _showError('تعذّر التحقق من الكود، يرجى المحاولة مرة أخرى');
       }
     }
   }
@@ -272,10 +272,8 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
         return 'خطأ في إعداد التطبيق. جرّب مرة أخرى.';
       case 'quota-exceeded':
         return 'تجاوزنا الحد اليومي لإرسال الرسائل. حاول لاحقاً';
-      case 'network-request-failed':
-        return 'تحقق من الاتصال بالإنترنت وحاول مرة أخرى';
       default:
-        return e.message ?? 'حدث خطأ: ${e.code}';
+        return 'حدث خطأ أثناء التحقق، يرجى المحاولة لاحقاً';
     }
   }
 
@@ -433,19 +431,21 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
             ),
           ),
 
-          // ── Main content ──
+          // ── Main content (Responsive for Phone & iPad) ──
           SafeArea(
             child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                physics: const BouncingScrollPhysics(),
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: SlideTransition(
-                    position: _slideAnimation,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  physics: const BouncingScrollPhysics(),
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const SizedBox(height: 20),
 
@@ -743,6 +743,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
               ),
             ),
           ),
+        ),
         ],
       ),
     );

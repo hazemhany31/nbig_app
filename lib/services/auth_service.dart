@@ -1,8 +1,14 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app_notification_service.dart';
+import 'chat_notification_listener.dart';
+import 'push_notification_service.dart';
+import 'doctor_cache_service.dart';
 
 // === Riverpod Providers ===
 // مزود خدمة المصادقة للوصول السريع
@@ -27,6 +33,64 @@ final userDataProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  /// User-friendly error message generator — never exposes raw Firebase internal exceptions.
+  static String getFriendlyAuthErrorMessage(dynamic error, bool isArabic) {
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'wrong-password':
+          return isArabic ? 'كلمة المرور غير صحيحة.' : 'Incorrect password.';
+        case 'user-not-found':
+          return isArabic ? 'الحساب غير مسجل أو البريد غير صحيح.' : 'Account not found. Please check your email.';
+        case 'invalid-email':
+          return isArabic ? 'صيغة البريد الإلكتروني غير صالحة.' : 'Invalid email address format.';
+        case 'invalid-credential':
+          return isArabic ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' : 'Incorrect email or password.';
+        case 'email-already-in-use':
+          return isArabic ? 'هذا البريد الإلكتروني مستخدم بالفعل بحساب آخر.' : 'The email is already in use by another account.';
+        case 'weak-password':
+          return isArabic ? 'كلمة المرور ضعيفة جداً، يرجى كتابة 6 أحرف على الأقل.' : 'The password is too weak. Please use at least 6 characters.';
+        case 'user-disabled':
+          return isArabic ? 'تم تعطيل هذا الحساب. يرجى التواصل مع الدعم.' : 'This account has been disabled. Please contact support.';
+        case 'too-many-requests':
+          return isArabic
+              ? 'تم حظر المحاولات مؤقتاً بسبب محاولات متكررة خاطئة. يرجى المحاولة بعد قليل.'
+              : 'Too many failed attempts. Please try again in a few minutes.';
+        case 'network-request-failed':
+          return isArabic
+              ? 'تعذر الاتصال بالسيرفر. يرجى التحقق من اتصالك بالإنترنت.'
+              : 'Network error. Please check your internet connection.';
+        case 'operation-not-allowed':
+          return isArabic ? 'هذه العملية غير مفعلة حالياً.' : 'This operation is not allowed.';
+        default:
+          return isArabic ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' : 'Incorrect email or password.';
+      }
+    }
+
+    final errStr = error.toString().toLowerCase();
+    if (errStr.contains('invalid-credential') ||
+        errStr.contains('wrong-password') ||
+        errStr.contains('user-not-found') ||
+        errStr.contains('invalid credential') ||
+        errStr.contains('malformed or has expired')) {
+      return isArabic ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' : 'Incorrect email or password.';
+    }
+    if (errStr.contains('email-already-in-use')) {
+      return isArabic ? 'هذا البريد الإلكتروني مستخدم بالفعل.' : 'The email is already in use by another account.';
+    }
+    if (errStr.contains('network') || errStr.contains('socket') || errStr.contains('offline')) {
+      return isArabic
+          ? 'تعذر الاتصال بالسيرفر. يرجى التحقق من اتصالك بالإنترنت.'
+          : 'Network error. Please check your internet connection.';
+    }
+    if (errStr.contains('too-many-requests')) {
+      return isArabic
+          ? 'تم حظر المحاولات مؤقتاً بسبب محاولات متكررة خاطئة. يرجى المحاولة بعد قليل.'
+          : 'Too many failed attempts. Please try again later.';
+    }
+
+    return isArabic ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' : 'Incorrect email or password.';
+  }
 
   // Sign Up with Email and Password
   Future<UserCredential> signUpWithEmailPassword({
@@ -88,16 +152,56 @@ class AuthService {
     final userId = uid ?? _auth.currentUser?.uid;
     if (userId == null) return;
 
-    await _firestore.collection('users').doc(userId).set({
+    final data = <String, dynamic>{
       'email': email,
       'name': name,
       'phoneNumber': phoneNumber,
-      'photoUrl': photoUrl,
       'role': role,
       'updatedAt': FieldValue.serverTimestamp(),
-      // Only set createdAt if it doesn't exist
       'createdAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    };
+
+    if (photoUrl != null) {
+      data['photoUrl'] = photoUrl;
+    }
+
+    await _firestore.collection('users').doc(userId).set(data, SetOptions(merge: true));
+  }
+
+  /// Delete user profile image from Firebase Storage and remove URL from Firestore
+  Future<void> removeProfilePhoto({String? uid}) async {
+    final userId = uid ?? _auth.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      // 1. Delete image file from Firebase Storage
+      final storageRef = FirebaseStorage.instance.ref().child('users/$userId/profile_pic.jpg');
+      try {
+        await storageRef.delete();
+        debugPrint('🗑️ Firebase Storage profile_pic.jpg deleted for $userId');
+      } catch (e) {
+        debugPrint('⚠️ Storage photo delete warning (file may not exist): $e');
+      }
+
+      // 2. Remove photoUrl field in Firestore
+      await _firestore.collection('users').doc(userId).update({
+        'photoUrl': FieldValue.delete(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // 3. Clear Flutter PaintingBinding image cache
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+
+      // 4. Remove local shared preferences cached image path
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('profile_image');
+
+      debugPrint('✅ Profile photo successfully removed for user: $userId');
+    } catch (e) {
+      debugPrint('❌ Error removing profile photo: $e');
+      rethrow;
+    }
   }
 
   // Get User Data — try cache first for instant load, fallback to network
@@ -129,6 +233,11 @@ class AuthService {
   // Sign Out
   Future<void> signOut() async {
     AppNotificationService().stopListening();
+    ChatNotificationListener().stopListening();
+    DoctorCacheService().invalidate();
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+    await PushNotificationService().clearFCMToken();
     await _auth.signOut();
   }
 
@@ -139,3 +248,4 @@ class AuthService {
     return _auth.currentUser;
   }
 }
+

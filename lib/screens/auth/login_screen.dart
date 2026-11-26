@@ -140,8 +140,9 @@ class _LoginScreenState extends State<LoginScreen>
       }
     } catch (e) {
       if (mounted) {
+        final isArabic = Directionality.of(context) == TextDirection.rtl;
         setState(() {
-          _errorMessage = e.toString().replaceAll('Exception: ', '');
+          _errorMessage = AuthService.getFriendlyAuthErrorMessage(e, isArabic);
         });
       }
     } finally {
@@ -191,89 +192,103 @@ class _LoginScreenState extends State<LoginScreen>
             // === Floating Spheres ===
             ..._buildFloatingSpheres(size),
 
-            // === Main Content ===
+            // === Main Content (Responsive for Phone & iPad) ===
             SafeArea(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: SizedBox(
-                  height: size.height - MediaQuery.of(context).padding.top - MediaQuery.of(context).padding.bottom,
-                  child: Column(
-                    children: [
-                      // Header controls (Theme toggle)
-                      Align(
-                        alignment: isArabic ? Alignment.topLeft : Alignment.topRight,
-                        child: IconButton(
-                          icon: Icon(
-                            widget.isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                            color: Colors.white.withValues(alpha: 0.8),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight - 24 > 0 ? constraints.maxHeight - 24 : 0,
                           ),
-                          onPressed: widget.toggleTheme,
-                        ),
-                      ),
-                      
-                      const Spacer(),
-
-                      // === Logo & Welcome ===
-                      FadeTransition(
-                        opacity: _logoFade,
-                        child: SlideTransition(
-                          position: _logoSlide,
-                          child: _buildHeader(isArabic),
-                        ),
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // === Glass Card Form ===
-                      FadeTransition(
-                        opacity: _formFade,
-                        child: SlideTransition(
-                          position: _formSlide,
-                          child: _buildGlassForm(isArabic),
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // === Login Button ===
-                      FadeTransition(
-                        opacity: _buttonFade,
-                        child: _buildLoginButton(isArabic),
-                      ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // === Sign Up Link ===
-                      FadeTransition(
-                        opacity: _buttonFade,
-                        child: TextButton(
-                          onPressed: _goToSignUp,
-                          child: RichText(
-                            text: TextSpan(
-                              style: GoogleFonts.cairo(
-                                fontSize: 15,
-                                color: Colors.white.withValues(alpha: 0.7),
-                              ),
+                          child: IntrinsicHeight(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                TextSpan(
-                                  text: isArabic ? 'ليس لديك حساب؟ ' : 'Don\'t have an account? ',
-                                ),
-                                TextSpan(
-                                  text: isArabic ? 'سجل الآن' : 'Sign Up',
-                                  style: const TextStyle(
-                                    color: Color(0xFFFBBF24), // Gold accent
-                                    fontWeight: FontWeight.bold,
+                                // Header controls (Theme toggle)
+                                Align(
+                                  alignment: isArabic ? Alignment.topLeft : Alignment.topRight,
+                                  child: IconButton(
+                                    icon: Icon(
+                                      widget.isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                                      color: Colors.white.withValues(alpha: 0.8),
+                                    ),
+                                    onPressed: widget.toggleTheme,
                                   ),
                                 ),
+                                
+                                const Spacer(),
+
+                                // === Logo & Welcome ===
+                                FadeTransition(
+                                  opacity: _logoFade,
+                                  child: SlideTransition(
+                                    position: _logoSlide,
+                                    child: _buildHeader(isArabic),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 32),
+
+                                // === Glass Card Form ===
+                                FadeTransition(
+                                  opacity: _formFade,
+                                  child: SlideTransition(
+                                    position: _formSlide,
+                                    child: _buildGlassForm(isArabic),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 24),
+
+                                // === Login Button ===
+                                FadeTransition(
+                                  opacity: _buttonFade,
+                                  child: _buildLoginButton(isArabic),
+                                ),
+                                
+                                const SizedBox(height: 16),
+                                
+                                // === Sign Up Link ===
+                                FadeTransition(
+                                  opacity: _buttonFade,
+                                  child: TextButton(
+                                    onPressed: _goToSignUp,
+                                    child: RichText(
+                                      text: TextSpan(
+                                        style: GoogleFonts.cairo(
+                                          fontSize: 15,
+                                          color: Colors.white.withValues(alpha: 0.7),
+                                        ),
+                                        children: [
+                                          TextSpan(
+                                            text: isArabic ? 'ليس لديك حساب؟ ' : 'Don\'t have an account? ',
+                                          ),
+                                          TextSpan(
+                                            text: isArabic ? 'سجل الآن' : 'Sign Up',
+                                            style: const TextStyle(
+                                              color: Color(0xFFFBBF24), // Gold accent
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                const Spacer(flex: 2),
                               ],
                             ),
                           ),
                         ),
-                      ),
-
-                      const Spacer(flex: 2),
-                    ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -435,6 +450,11 @@ class _LoginScreenState extends State<LoginScreen>
       keyboardType: keyboardType,
       obscureText: obscure,
       validator: validator,
+      onChanged: (_) {
+        if (_errorMessage != null) {
+          setState(() => _errorMessage = null);
+        }
+      },
       style: GoogleFonts.cairo(
         color: Colors.white,
         fontSize: 15,

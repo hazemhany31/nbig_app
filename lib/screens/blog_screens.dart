@@ -1,6 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../language_config.dart';
+
+class MedicalCitation {
+  final String sourceName;
+  final String sourceNameAr;
+  final String titleEn;
+  final String titleAr;
+  final String url;
+
+  const MedicalCitation({
+    required this.sourceName,
+    required this.sourceNameAr,
+    required this.titleEn,
+    required this.titleAr,
+    required this.url,
+  });
+}
 
 class BlogPost {
   final String id;
@@ -14,6 +31,7 @@ class BlogPost {
   final String date;
   final String categoryEn;
   final String categoryAr;
+  final List<MedicalCitation> citations;
 
   BlogPost({
     required this.id,
@@ -27,6 +45,7 @@ class BlogPost {
     required this.date,
     required this.categoryEn,
     required this.categoryAr,
+    this.citations = const [],
   });
 }
 
@@ -57,6 +76,22 @@ Key tips for prevention:
 3. عزز مناعتك: تناول نظاماً غذائياً متوازناً غنياً بالفيتامينات، وحافظ على شرب السوائل، واحصل على قسط كافٍ من النوم.
 4. حافظ على مسافة آمنة: تجنب الاتصال الوثيق مع الأشخاص المرضى.
 ''',
+    citations: const [
+      MedicalCitation(
+        sourceName: 'CDC (Centers for Disease Control and Prevention)',
+        sourceNameAr: 'مراكز السيطرة على الأمراض والوقاية منها (CDC)',
+        titleEn: 'Preventing Seasonal Flu — Vaccination & Healthy Habits',
+        titleAr: 'الوقاية من الأنفلونزا الموسمية — التطعيم والعادات الصحية',
+        url: 'https://www.cdc.gov/flu/prevent/index.html',
+      ),
+      MedicalCitation(
+        sourceName: 'WHO (World Health Organization)',
+        sourceNameAr: 'منظمة الصحة العالمية (WHO)',
+        titleEn: 'Influenza (Seasonal) Fact Sheet & Guidelines',
+        titleAr: 'صحيفة وقائع وإرشادات الأنفلونزا الموسمية',
+        url: 'https://www.who.int/news-room/fact-sheets/detail/influenza-(seasonal)',
+      ),
+    ],
   ),
   BlogPost(
     id: '2',
@@ -90,6 +125,22 @@ During Treatment:
 - الترطيب هو المفتاح. اشرب الكثير من الماء.
 - أبلغ عن الآثار الجانبية فوراً لفريقك الطبي.
 ''',
+    citations: const [
+      MedicalCitation(
+        sourceName: 'Mayo Clinic',
+        sourceNameAr: 'مايو كلينك (Mayo Clinic)',
+        titleEn: 'Chemotherapy: What you can expect, preparation & side effects',
+        titleAr: 'العلاج الكيميائي: ما يمكن توقعه، التحضير والآثار الجانبية',
+        url: 'https://www.mayoclinic.org/tests-procedures/chemotherapy/about/pac-20385064',
+      ),
+      MedicalCitation(
+        sourceName: 'National Cancer Institute (NIH)',
+        sourceNameAr: 'المعهد القومي للسرطان (NIH)',
+        titleEn: 'Chemotherapy and You: Support and Care for People With Cancer',
+        titleAr: 'العلاج الكيميائي ورعاية مرضى السرطان',
+        url: 'https://www.cancer.gov/about-cancer/treatment/types/chemotherapy',
+      ),
+    ],
   ),
   BlogPost(
     id: '3',
@@ -117,6 +168,22 @@ Simple Meditation Steps:
 3. راقب أفكارك دون حكم: اتركها تمر مثل السحب في السماء.
 4. مارسها يومياً: حتى 5-10 دقائق يمكن أن تحدث فرقاً كبيراً.
 ''',
+    citations: const [
+      MedicalCitation(
+        sourceName: 'NIH / NCCIH',
+        sourceNameAr: 'المعاهد الوطنية للصحة (NIH / NCCIH)',
+        titleEn: 'Meditation and Mindfulness: What You Need To Know',
+        titleAr: 'التأمل واليقظة الذهنية: ما تحتاج لمعرفته علمياً',
+        url: 'https://www.nccih.nih.gov/health/meditation-and-mindfulness-what-you-need-to-know',
+      ),
+      MedicalCitation(
+        sourceName: 'Mayo Clinic',
+        sourceNameAr: 'مايو كلينك (Mayo Clinic)',
+        titleEn: 'Meditation: A simple, fast way to reduce stress',
+        titleAr: 'التأمل: طريقة بسيطة وفعالة لتقليل التوتر والإجهاد',
+        url: 'https://www.mayoclinic.org/tests-procedures/meditation/in-depth/meditation/art-20045858',
+      ),
+    ],
   ),
 ];
 
@@ -130,7 +197,7 @@ class BlogListScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(isArabic ? 'المدونة الطبية' : 'Medical Blog'),
+        title: Text(isArabic ? 'المدونة والمراجع الطبية' : 'Medical Blog & References'),
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
@@ -223,6 +290,23 @@ class BlogListScreen extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (post.citations.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Icon(Icons.verified_outlined, size: 14, color: Colors.green[600]),
+                        const SizedBox(width: 4),
+                        Text(
+                          isArabic ? 'يتضمن مراجع طبية موثقة' : 'Verified Medical Sources',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -290,7 +374,7 @@ class BlogDetailScreen extends StatelessWidget {
                     ],
                   ),
                   const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
+                    padding: EdgeInsets.symmetric(vertical: 20),
                     child: Divider(),
                   ),
                   Text(
@@ -301,6 +385,96 @@ class BlogDetailScreen extends StatelessWidget {
                       color: isDark ? Colors.grey[300] : Colors.grey[800],
                     ),
                   ),
+
+                  // Medical Sources & Citations Section
+                  if (post.citations.isNotEmpty) ...[
+                    const SizedBox(height: 32),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.menu_book_rounded, color: Colors.blue, size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          isArabic ? 'المصادر والمراجع الطبية' : 'Sources & Medical References',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      isArabic
+                          ? 'المعلومات الواردة في هذا المقال مستندة ومراجعة وفقاً للمصادر الطبية الموثوقة التالية:'
+                          : 'The medical information in this article is supported by the following authoritative sources:',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...post.citations.map((citation) => _buildCitationCard(citation, isDark)),
+                  ],
+
+                  // Prominent Medical Disclaimer Banner
+                  const SizedBox(height: 28),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : const Color(0xFFE2E8F0),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.health_and_safety_outlined,
+                              color: Color(0xFFF59E0B),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              isArabic ? 'إخلاء مسؤولية طبي' : 'Medical Disclaimer',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          isArabic
+                              ? 'المعلومات الطبية الواردة في هذا التطبيق هي للأغراض التثقيفية والتعليمية فقط، ولا ينبغي استخدامها أو الاعتماد عليها كبديل عن الاستشارة الطبية المتخصصة أو التشخيص أو العلاج. استشر دائماً طبيبك أو مقدم الرعاية الصحية المؤهل.'
+                              : 'The medical and health information in this application is provided for educational and informational purposes only and is not a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or qualified health provider with any questions you may have regarding a medical condition.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.5,
+                            color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -309,4 +483,78 @@ class BlogDetailScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildCitationCard(MedicalCitation citation, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFF0EA5E9).withValues(alpha: 0.2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0EA5E9).withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.article_rounded,
+            color: Color(0xFF0EA5E9),
+            size: 20,
+          ),
+        ),
+        title: Text(
+          isArabic ? citation.sourceNameAr : citation.sourceName,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            color: isDark ? Colors.white : const Color(0xFF0F172A),
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 3.0),
+          child: Text(
+            isArabic ? citation.titleAr : citation.titleEn,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0EA5E9).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(
+            Icons.open_in_new_rounded,
+            size: 16,
+            color: Color(0xFF0EA5E9),
+          ),
+        ),
+        onTap: () async {
+          final uri = Uri.parse(citation.url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        },
+      ),
+    );
+  }
 }
+

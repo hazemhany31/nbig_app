@@ -2,7 +2,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'push_notification_service.dart';
 import 'database_helper.dart';
 
 class AppNotificationService {
@@ -14,14 +15,36 @@ class AppNotificationService {
   final Set<String> _processedIds = {};
   bool _isFirstLoad = true;
 
-  void startListening() {
+  Future<void> _loadProcessedIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList('processed_notification_ids') ?? [];
+      _processedIds.addAll(saved);
+    } catch (e) {
+      debugPrint('Error loading processed notification IDs: $e');
+    }
+  }
+
+  Future<void> _saveProcessedId(String id) async {
+    _processedIds.add(id);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('processed_notification_ids', _processedIds.toList());
+    } catch (e) {
+      debugPrint('Error saving processed notification ID: $e');
+    }
+  }
+
+  Future<void> startListening() async {
     stopListening();
+    await _loadProcessedIds();
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final recipientIds = [user.uid]; // Patient uses Auth UID
+    final recipientIds = [user.uid];
     debugPrint('📡 AppNotificationService: Listening for $recipientIds');
+    _isFirstLoad = true;
 
     _subscription = FirebaseFirestore.instance
         .collection('notifications')
@@ -29,7 +52,7 @@ class AppNotificationService {
         .where('status', isEqualTo: 'unread')
         .snapshots()
         .listen(
-      (snapshot) {
+      (snapshot) async {
         void processDoc(DocumentSnapshot doc) {
           final docId = doc.id;
           if (_processedIds.contains(docId)) return;
@@ -37,25 +60,22 @@ class AppNotificationService {
           final data = doc.data() as Map<String, dynamic>?;
           if (data == null) return;
           
-          _processedIds.add(docId);
-          final title = data['title'] ?? 'تحديث جديد';
-          final body = data['body'] ?? 'لديك إشعار جديد';
+          _saveProcessedId(docId);
+          final title = (data['title'] ?? 'تحديث جديد').toString();
+          final body = (data['body'] ?? 'لديك إشعار جديد').toString();
 
-          NotificationService().showNotification(title, body);
+          PushNotificationService().showManualNotification(title, body);
 
           final type = data['type'] as String?;
           final apptId = data['appointmentId'] as String?;
 
           if (apptId != null && apptId.isNotEmpty) {
-            if (type == 'appointment_confirmed') {
+            if (type == 'appointment_confirmed' || type == 'appointment_accepted') {
               DatabaseHelper().updateAppointmentStatusByFirestoreId(apptId, 'confirmed');
-            } else if (type == 'appointment_cancelled') {
+            } else if (type == 'appointment_cancelled' || type == 'appointment_rejected') {
               DatabaseHelper().updateAppointmentStatusByFirestoreId(apptId, 'cancelled');
             }
           }
-
-          // In patient app, we mark as read immediately as there is no notification screen yet
-          _markAsRead(docId);
         }
 
         if (_isFirstLoad) {
@@ -67,7 +87,7 @@ class AppNotificationService {
                 : null;
 
             if (createdAt != null && now.difference(createdAt).inMinutes > 10) {
-              _processedIds.add(doc.id);
+              _saveProcessedId(doc.id);
             }
           }
           _isFirstLoad = false;
@@ -81,8 +101,7 @@ class AppNotificationService {
         }
 
         for (var change in snapshot.docChanges) {
-          if (change.type == DocumentChangeType.added ||
-              change.type == DocumentChangeType.modified) {
+          if (change.type == DocumentChangeType.added) {
             processDoc(change.doc);
           }
         }
@@ -92,17 +111,6 @@ class AppNotificationService {
       },
       cancelOnError: false,
     );
-  }
-
-  Future<void> _markAsRead(String notificationId) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('notifications')
-          .doc(notificationId)
-          .update({'status': 'read'});
-    } catch (e) {
-      debugPrint('Failed to mark notification as read: $e');
-    }
   }
 
   void stopListening() {

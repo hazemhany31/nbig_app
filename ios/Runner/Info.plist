@@ -4,10 +4,12 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Nbig App</string>
+	<string>iHealthy</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +17,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>nbig_app</string>
+	<string>iHealthy</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -39,8 +41,7 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>We need access to your camera to securely capture photos for your medical records and personalized user profile.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>We require microphone access to transmit your audio securely during online medical video consultations.</string>
+
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>We need photo library access to let you select and securely upload medical documents or a profile picture from your existing photo albums.</string>
 	<key>UIApplicationSceneManifest</key>

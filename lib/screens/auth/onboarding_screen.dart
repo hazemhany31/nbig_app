@@ -222,16 +222,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   Widget _buildPageContent(int index, Size size) {
     final page = _pages[index];
 
-    return FadeTransition(
-      opacity: _contentFade,
-      child: SlideTransition(
-        position: _contentSlide,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(height: 60),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 540),
+        child: FadeTransition(
+          opacity: _contentFade,
+          child: SlideTransition(
+            position: _contentSlide,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 60),
 
               // === Large Icon with glow ===
               Container(
@@ -348,7 +351,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildBottomControls(bool isLast, Size size) {
@@ -369,8 +374,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           ],
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 540),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
         children: [
           // === Page Indicators ===
           Row(
@@ -416,7 +424,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildCTAButton() {

@@ -24,7 +24,7 @@
       "android": {
         "default": {
           "projectId": "nbig-app",
-          "appId": "1:610302298484:android:dbb64d3e5c93ccbcfd0421",
+          "appId": "1:610302298484:android:cf86481d4590eb92fd0421",
           "fileOutput": "android/app/google-services.json"
         }
       },

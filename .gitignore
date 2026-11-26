@@ -56,6 +56,12 @@ lib/firebase_options.dart
 .env
 .env.*
 !.env.example
+key.properties
+**/key.properties
+*.keystore
+*.jks
+**/*.keystore
+**/*.jks
 
 # Local Databases and Logs
 appointments.db

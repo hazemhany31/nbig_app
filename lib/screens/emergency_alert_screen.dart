@@ -831,6 +831,75 @@ class _EmergencyAlertScreenState extends State<EmergencyAlertScreen>
                 ),
               ),
             ),
+            const SizedBox(height: 24),
+            // ─── Emergency & Critical Care Notice ───
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        isArabic ? 'إخلاء مسؤولية الحالات الحرجة' : 'Emergency & Critical Care Notice',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : const Color(0xFF991B1B),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    isArabic
+                        ? 'في الحالات الحرجة المهددة للحياة، يرجى الاتصال فوراً بخدمات الإسعاف والطوارئ المحلية (123 في مصر) أو التوجه لأقرب مستشفى.'
+                        : 'In life-threatening situations, immediately call your local emergency services (e.g. 123 / 911 / 112) or go to the nearest emergency department.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.4,
+                      color: isDark ? Colors.grey[400] : const Color(0xFF7F1D1D),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () async {
+                      final uri = Uri.parse('https://www.who.int/activities/providing-emergency-medical-care');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.menu_book_rounded, size: 12, color: Color(0xFFEF4444)),
+                        const SizedBox(width: 4),
+                        Text(
+                          isArabic ? 'المصدر: منظمة الصحة العالمية (WHO) — رعاية الطوارئ' : 'Source: WHO — Emergency Medical Care Guidelines',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFEF4444),
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.open_in_new_rounded, size: 10, color: Color(0xFFEF4444)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
           const SizedBox(height: 32),
         ],

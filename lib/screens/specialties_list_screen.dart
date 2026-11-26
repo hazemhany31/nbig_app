@@ -173,14 +173,14 @@ class _SpecialtiesListScreenState extends State<SpecialtiesListScreen> {
 
       if (mounted) {
         setState(() {
-          _activeSpecialties = active;
+          _activeSpecialties = active.isNotEmpty ? active : specialties;
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _activeSpecialties = [];
+          _activeSpecialties = specialties;
           _isLoading = false;
         });
       }

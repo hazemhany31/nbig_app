@@ -1132,7 +1132,9 @@ class _TypingIndicatorState extends State<TypingIndicator>
 
   @override
   void dispose() {
-    for (final c in _dotControllers) c.dispose();
+    for (final c in _dotControllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -1143,7 +1145,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
       children: List.generate(3, (i) {
         return AnimatedBuilder(
           animation: _dotControllers[i],
-          builder: (_, __) => Container(
+          builder: (_, child) => Container(
             margin: const EdgeInsets.symmetric(horizontal: 3),
             width: 8,
             height: 8 + (_dotControllers[i].value * 6),

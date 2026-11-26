@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../widgets/neutral_avatar.dart';
 import '../../services/appointment_service.dart';
 import '../../models/appointment_model.dart';
 import 'package:intl/intl.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:ui' as ui;
 
 class DoctorAppointmentsScreen extends StatefulWidget {
@@ -38,13 +38,20 @@ class _DoctorAppointmentsScreenState extends State<DoctorAppointmentsScreen> {
               color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Row(
-              children: [
-                _buildTab(isArabic ? 'بانتظار الموافقة' : 'Pending', 0),
-                _buildTab(isArabic ? 'مؤكدة' : 'Confirmed', 1),
-                _buildTab(isArabic ? 'تمت' : 'Done', 2),
-                _buildTab(isArabic ? 'ملغاة' : 'Canceled', 3),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildTab(isArabic ? 'الكل' : 'All', 0),
+                  _buildTab(isArabic ? 'قيد الانتظار' : 'Pending', 1),
+                  _buildTab(isArabic ? 'مؤكدة' : 'Confirmed', 2),
+                  _buildTab(isArabic ? 'مكتملة' : 'Completed', 3),
+                  _buildTab(isArabic ? 'ملغاة' : 'Cancelled', 4),
+                  _buildTab(isArabic ? 'مرفوضة' : 'Rejected', 5),
+                  _buildTab(isArabic ? 'منتهية' : 'Expired', 6),
+                  _buildTab(isArabic ? 'معاد جدولتها' : 'Rescheduled', 7),
+                ],
+              ),
             ),
           ),
         ),
@@ -62,10 +69,14 @@ class _DoctorAppointmentsScreenState extends State<DoctorAppointmentsScreen> {
               
               final appointments = snapshot.data ?? [];
               final filteredAppointments = appointments.where((a) {
-                if (_tabIndex == 0) return a.status == 'pending';
-                if (_tabIndex == 1) return a.status == 'accepted' || a.status == 'confirmed';
-                if (_tabIndex == 2) return a.status == 'completed';
-                if (_tabIndex == 3) return a.status == 'cancelled';
+                if (_tabIndex == 0) return true; // All
+                if (_tabIndex == 1) return a.status == 'pending';
+                if (_tabIndex == 2) return a.status == 'accepted' || a.status == 'confirmed';
+                if (_tabIndex == 3) return a.status == 'completed';
+                if (_tabIndex == 4) return a.status == 'cancelled';
+                if (_tabIndex == 5) return a.status == 'rejected';
+                if (_tabIndex == 6) return a.status == 'expired';
+                if (_tabIndex == 7) return a.status == 'rescheduled';
                 return false;
               }).toList();
 
@@ -101,31 +112,29 @@ class _DoctorAppointmentsScreenState extends State<DoctorAppointmentsScreen> {
 
   Widget _buildTab(String title, int index) {
     bool isActive = _tabIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _tabIndex = index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            gradient: isActive
-                ? const LinearGradient(
-                    colors: [Color(0xFF10B981), Color(0xFF059669)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: isActive ? null : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Center(
-            child: Text(
-              title,
-              style: TextStyle(
-                color: isActive ? Colors.white : Colors.grey[600],
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
+    return GestureDetector(
+      onTap: () => setState(() => _tabIndex = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        decoration: BoxDecoration(
+          gradient: isActive
+              ? const LinearGradient(
+                  colors: [Color(0xFF10B981), Color(0xFF059669)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isActive ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Text(
+            title,
+            style: TextStyle(
+              color: isActive ? Colors.white : Colors.grey[600],
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
             ),
           ),
         ),
@@ -157,21 +166,9 @@ class _DoctorAppointmentsScreenState extends State<DoctorAppointmentsScreen> {
           children: [
             Row(
               children: [
-                CircleAvatar(
+                NeutralAvatar(
+                  photoUrl: appointment.patientPhotoUrl,
                   radius: 20,
-                  backgroundColor: accentColor.withValues(alpha: 0.1),
-                  backgroundImage: appointment.patientPhotoUrl != null
-                      ? CachedNetworkImageProvider(appointment.patientPhotoUrl!)
-                      : null,
-                  child: appointment.patientPhotoUrl == null
-                      ? Text(
-                          appointment.patientName.isNotEmpty
-                              ? appointment.patientName[0].toUpperCase()
-                              : 'P',
-                          style: TextStyle(
-                              color: accentColor, fontWeight: FontWeight.bold),
-                        )
-                      : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(

@@ -1,9 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/auth_service.dart';
 import 'auth_check.dart';
-import 'phone_verification_screen.dart';
 
 
 // === SIGN UP SCREEN PREMIUM REDESIGN ===
@@ -124,95 +122,39 @@ class _SignUpScreenState extends State<SignUpScreen>
       debugPrint('AuthService: Sign-up successful for ${emailController.text}');
 
       if (mounted) {
-        final phone = phoneController.text.trim();
-
-        // إذا أدخل المستخدم رقم هاتف → اذهب لشاشة التحقق
-        if (phone.isNotEmpty) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) =>
-                  PhoneVerificationScreen(
-                    toggleTheme: widget.toggleTheme,
-                    isDark: widget.isDark,
-                    phoneNumber: phone,
-                    name: nameController.text.trim(),
-                    email: emailController.text.trim(),
-                  ),
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) =>
-                      FadeTransition(opacity: animation, child: child),
-              transitionDuration: const Duration(milliseconds: 600),
+        // Navigate directly to the app layout (AuthCheck) regardless of phone entry.
+        // The phone number is safely saved in Firestore via signUpWithEmailPassword.
+        Navigator.pushAndRemoveUntil(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => AuthCheck(
+              toggleTheme: widget.toggleTheme,
+              isDark: widget.isDark,
             ),
-            (route) => false,
-          );
-        } else {
-          // لا يوجد رقم هاتف → انتقل مباشرة للتطبيق
-          Navigator.pushAndRemoveUntil(
-            context,
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => AuthCheck(
-                toggleTheme: widget.toggleTheme,
-                isDark: widget.isDark,
-              ),
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(opacity: animation, child: child);
-                  },
-              transitionDuration: const Duration(milliseconds: 800),
-            ),
-            (route) => false,
-          );
-        }
-      }
-    } on FirebaseAuthException catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        String errorMessage = Directionality.of(context) == TextDirection.rtl
-            ? 'فشل إنشاء الحساب'
-            : 'Sign up failed';
-        if (e.code == 'email-already-in-use') {
-          errorMessage = Directionality.of(context) == TextDirection.rtl
-              ? 'هذا البريد الإلكتروني مستخدم بالفعل.'
-              : 'The email is already in use by another account.';
-        } else if (e.code == 'invalid-email') {
-          errorMessage = Directionality.of(context) == TextDirection.rtl
-              ? 'البريد الإلكتروني غير صالح.'
-              : 'The email address is invalid.';
-        } else if (e.code == 'weak-password') {
-          errorMessage = Directionality.of(context) == TextDirection.rtl
-              ? 'كلمة المرور ضعيفة جدًا.'
-              : 'The password is too weak.';
-        debugPrint('AuthService: Sign-up failed (AuthException) for ${emailController.text}: ${e.code} - ${e.message}');
-        errorMessage = e.message ?? errorMessage;
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMessage),
-              backgroundColor: Colors.redAccent,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          );
-        }
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+            transitionDuration: const Duration(milliseconds: 800),
+          ),
+          (route) => false,
+        );
       }
     } catch (e) {
-      debugPrint('AuthService: Sign-up error (General) for ${emailController.text}: $e');
       if (mounted) {
         setState(() => _isLoading = false);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: ${e.toString()}'),
-              backgroundColor: Colors.redAccent,
-              behavior: SnackBarBehavior.floating,
+        final isArabic = Directionality.of(context) == TextDirection.rtl;
+        final errorMessage = AuthService.getFriendlyAuthErrorMessage(e, isArabic);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
             ),
-          );
-        }
+          ),
+        );
       }
     }
   }
@@ -311,19 +253,21 @@ class _SignUpScreenState extends State<SignUpScreen>
             ),
           ),
 
-          // 2. Glassmorphic Content Layer
+          // 2. Glassmorphic Content Layer (Responsive for Phone & iPad)
           SafeArea(
             child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                physics: const BouncingScrollPhysics(),
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: SlideTransition(
-                    position: _slideAnimation,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  physics: const BouncingScrollPhysics(),
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const SizedBox(height: 20),
                         FocusScope.of(context).hasFocus
@@ -592,6 +536,7 @@ class _SignUpScreenState extends State<SignUpScreen>
               ),
             ),
           ),
+        ),
         ],
       ),
     );

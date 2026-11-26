@@ -7,6 +7,7 @@ import '../models/appointment_model.dart';
 import '../services/notification_service.dart';
 import '../services/medication_tracking_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../language_config.dart';
 import '../providers/medication_provider.dart';
 import 'medication_analytics_screen.dart';
@@ -227,7 +228,7 @@ class _MedicationRemindersScreenState
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) return const SizedBox.shrink();
                     final data = snapshot.data!;
-                    final streak = data['streak'] ?? 0;
+                    final streak = data['dailyStreak'] ?? data['streak'] ?? 0;
                     final todayLeft = data['todayLeft'] ?? 0;
                     final todayTotal = data['todayTotal'] ?? 0;
                     final allCompleted = data['allCompleted'] == true;
@@ -351,7 +352,7 @@ class _MedicationRemindersScreenState
                 SliverFillRemaining(child: _buildEmpty(isDark))
               else
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 100),
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 40),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
@@ -362,6 +363,102 @@ class _MedicationRemindersScreenState
                     ),
                   ),
                 ),
+              // Safety Disclaimer & FDA Citation Footer
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.health_and_safety_outlined,
+                              color: Color(0xFF10B981),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              isArabic ? 'إرشادات السلامة الدوائية' : 'Medication Safety & Guidance',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          isArabic
+                              ? 'يرجى تناول الأدوية بانتظام ووفقاً للجرعات والتوجيهات المحددة من قِبل طبيبك المعالج فقط. لا تقم بتعديل أو إيقاف أي علاج دون استشارة الطبيب.'
+                              : 'Take medications strictly as prescribed by your healthcare provider. Never modify doses or discontinue medications without consulting your doctor.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.4,
+                            color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        InkWell(
+                          onTap: () async {
+                            final uri = Uri.parse('https://www.fda.gov/drugs/resources-drugs/use-medicines-wisely');
+                            if (await canLaunchUrl(uri)) {
+                              await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.menu_book_rounded,
+                                  size: 13,
+                                  color: Color(0xFF10B981),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  isArabic ? 'المصدر: إدارة الغذاء والدواء الأمريكية (FDA)' : 'Source: FDA — Use Medicines Wisely',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF10B981),
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.open_in_new_rounded,
+                                  size: 12,
+                                  color: Color(0xFF10B981),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           );
         },

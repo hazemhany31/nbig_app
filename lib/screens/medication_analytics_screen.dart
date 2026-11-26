@@ -71,7 +71,7 @@ class _MedicationAnalyticsScreenState extends ConsumerState<MedicationAnalyticsS
   }
 
   Widget _buildContent(bool isDark, Map<String, dynamic> data) {
-    final int streak = data['streak'] ?? 0;
+    final int streak = data['dailyStreak'] ?? data['streak'] ?? 0;
     final List<double> weekly = data['weekly'] as List<double>? ?? List.filled(7, 0.0);
     // Use last 7 days from monthly for a cleaner chart if monthly is not fully needed, 
     // but requirement said "weekly and monthly adherence analytics with charts".

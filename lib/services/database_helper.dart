@@ -21,120 +21,155 @@ class DatabaseHelper {
 
   Future<Database?> _initDatabase() async {
     if (kIsWeb) return null;
-    Directory documentsDirectory = await getApplicationDocumentsDirectory();
-    String path = join(documentsDirectory.path, "app_database_final.db");
-    if (FileSystemEntity.typeSync(path) == FileSystemEntityType.notFound) {
-      ByteData data = await rootBundle.load(join("assets", "app_database.db"));
-      List<int> bytes = data.buffer.asUint8List(
-        data.offsetInBytes,
-        data.lengthInBytes,
+    try {
+      Directory documentsDirectory = await getApplicationDocumentsDirectory();
+      String path = join(documentsDirectory.path, "app_database_final.db");
+      final file = File(path);
+
+      if (!file.existsSync() || file.lengthSync() == 0) {
+        try {
+          ByteData data = await rootBundle.load("assets/app_database.db");
+          List<int> bytes = data.buffer.asUint8List(
+            data.offsetInBytes,
+            data.lengthInBytes,
+          );
+          await file.writeAsBytes(bytes, flush: true);
+        } catch (e) {
+          debugPrint('⚠️ Error copying asset database: $e');
+        }
+      }
+
+      var db = await openDatabase(path, readOnly: false);
+
+      await db.execute(
+        'CREATE TABLE IF NOT EXISTS UserAppointments (id INTEGER PRIMARY KEY AUTOINCREMENT, doctorName TEXT, specialty TEXT, date TEXT, time TEXT, status TEXT)',
       );
-      await File(path).writeAsBytes(bytes, flush: true);
+      await db.execute(
+        'CREATE TABLE IF NOT EXISTS UserFavorites (doctorId TEXT PRIMARY KEY)',
+      );
+      await db.execute(
+        'CREATE TABLE IF NOT EXISTS Messages (id INTEGER PRIMARY KEY AUTOINCREMENT, doctorName TEXT, text TEXT, isMe INTEGER, timestamp TEXT, attachmentPath TEXT, attachmentType TEXT)',
+      );
+
+      // Migration logic simple
+      try {
+        await db.execute('ALTER TABLE Messages ADD COLUMN attachmentPath TEXT');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE Messages ADD COLUMN attachmentType TEXT');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE UserAppointments ADD COLUMN doctorId TEXT');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE UserAppointments ADD COLUMN isRated INTEGER DEFAULT 0');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE UserAppointments ADD COLUMN firestoreId TEXT');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE UserAppointments ADD COLUMN isAcknowledged INTEGER DEFAULT 0');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE UserAppointments ADD COLUMN cancelledBy TEXT');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE UserAppointments ADD COLUMN expiresAt TEXT');
+      } catch (_) {}
+
+      return db;
+    } catch (e) {
+      debugPrint('❌ Error initializing SQLite database: $e');
+      return null;
     }
-    var db = await openDatabase(path, readOnly: false);
-    await db.execute(
-      'CREATE TABLE IF NOT EXISTS UserAppointments (id INTEGER PRIMARY KEY AUTOINCREMENT, doctorName TEXT, specialty TEXT, date TEXT, time TEXT, status TEXT)',
-    );
-    await db.execute(
-      'CREATE TABLE IF NOT EXISTS UserFavorites (doctorId TEXT PRIMARY KEY)',
-    );
-    await db.execute(
-      'CREATE TABLE IF NOT EXISTS Messages (id INTEGER PRIMARY KEY AUTOINCREMENT, doctorName TEXT, text TEXT, isMe INTEGER, timestamp TEXT, attachmentPath TEXT, attachmentType TEXT)',
-    );
-
-    // Migration logic simple
-    try {
-      await db.execute('ALTER TABLE Messages ADD COLUMN attachmentPath TEXT');
-    } catch (_) {}
-    try {
-      await db.execute('ALTER TABLE Messages ADD COLUMN attachmentType TEXT');
-    } catch (_) {}
-    try {
-      await db.execute('ALTER TABLE UserAppointments ADD COLUMN doctorId TEXT');
-    } catch (_) {}
-    try {
-      await db.execute('ALTER TABLE UserAppointments ADD COLUMN isRated INTEGER DEFAULT 0');
-    } catch (_) {}
-    try {
-      await db.execute('ALTER TABLE UserAppointments ADD COLUMN firestoreId TEXT');
-    } catch (_) {}
-    try {
-      await db.execute('ALTER TABLE UserAppointments ADD COLUMN isAcknowledged INTEGER DEFAULT 0');
-    } catch (_) {}
-    try {
-      await db.execute('ALTER TABLE UserAppointments ADD COLUMN cancelledBy TEXT');
-    } catch (_) {}
-    try {
-      await db.execute('ALTER TABLE UserAppointments ADD COLUMN expiresAt TEXT');
-    } catch (_) {}
-
-    return db;
   }
 
   // === 1. جلب الدكاترة (بالعربي والإنجليزي) ===
   Future<List<Doctor>> getDoctors({String? category}) async {
-    final db = await database;
-    if (db == null) return [];
-    final favList = await db.query('UserFavorites');
-    final favIds = favList.map((e) => e['doctorId'].toString()).toSet();
+    try {
+      final db = await database;
+      if (db == null) return [];
 
-    List<Map<String, dynamic>> maps;
-    if (category == null || category == 'All') {
-      maps = await db.query('DoctorV2', orderBy: "name ASC");
-    } else {
-      maps = await db.query(
-        'DoctorV2',
-        where: 'speciality LIKE ?',
-        whereArgs: ['%$category%'],
-        orderBy: "name ASC",
-      );
+      Set<String> favIds = {};
+      try {
+        final favList = await db.query('UserFavorites');
+        favIds = favList.map((e) => e['doctorId'].toString()).toSet();
+      } catch (_) {}
+
+      List<Map<String, dynamic>> maps;
+      if (category == null || category == 'All') {
+        maps = await db.query('DoctorV2', orderBy: "name ASC");
+      } else {
+        maps = await db.query(
+          'DoctorV2',
+          where: 'speciality LIKE ?',
+          whereArgs: ['%$category%'],
+          orderBy: "name ASC",
+        );
+      }
+
+      return List.generate(maps.length, (i) {
+        var doc = Doctor.fromMap(maps[i]);
+        doc.isFavorite = favIds.contains(doc.id);
+        return doc;
+      });
+    } catch (e) {
+      debugPrint('⚠️ Error querying DoctorV2 in SQLite: $e');
+      return [];
     }
-
-    return List.generate(maps.length, (i) {
-      var doc = Doctor.fromMap(maps[i]);
-      doc.isFavorite = favIds.contains(doc.id);
-      return doc;
-    });
   }
 
   Future<bool> toggleFavorite(String doctorId) async {
-    final db = await database;
-    if (db == null) return false;
-    final maps = await db.query(
-      'UserFavorites',
-      where: 'doctorId = ?',
-      whereArgs: [doctorId],
-    );
-    if (maps.isEmpty) {
-      await db.insert('UserFavorites', {'doctorId': doctorId});
-      return true;
-    } else {
-      await db.delete(
+    try {
+      final db = await database;
+      if (db == null) return false;
+      final maps = await db.query(
         'UserFavorites',
         where: 'doctorId = ?',
         whereArgs: [doctorId],
       );
+      if (maps.isEmpty) {
+        await db.insert('UserFavorites', {'doctorId': doctorId});
+        return true;
+      } else {
+        await db.delete(
+          'UserFavorites',
+          where: 'doctorId = ?',
+          whereArgs: [doctorId],
+        );
+        return false;
+      }
+    } catch (e) {
       return false;
     }
   }
 
   Future<Set<String>> getFavoriteIds() async {
-    final db = await database;
-    if (db == null) return {};
-    final favList = await db.query('UserFavorites');
-    return favList.map((e) => e['doctorId'].toString()).toSet();
+    try {
+      final db = await database;
+      if (db == null) return {};
+      final favList = await db.query('UserFavorites');
+      return favList.map((e) => e['doctorId'].toString()).toSet();
+    } catch (_) {
+      return {};
+    }
   }
 
   Future<List<Doctor>> searchDoctors(String keyword) async {
-    final db = await database;
-    if (db == null) return [];
-    final List<Map<String, dynamic>> maps = await db.query(
-      'DoctorV2',
-      where: 'name LIKE ? OR speciality LIKE ?',
-      whereArgs: ['%$keyword%', '%$keyword%'],
-      orderBy: "name ASC",
-    );
-    return List.generate(maps.length, (i) => Doctor.fromMap(maps[i]));
+    try {
+      final db = await database;
+      if (db == null) return [];
+      final List<Map<String, dynamic>> maps = await db.query(
+        'DoctorV2',
+        where: 'name LIKE ? OR speciality LIKE ?',
+        whereArgs: ['%$keyword%', '%$keyword%'],
+        orderBy: "name ASC",
+      );
+      return List.generate(maps.length, (i) => Doctor.fromMap(maps[i]));
+    } catch (e) {
+      debugPrint('⚠️ Error searching DoctorV2 in SQLite: $e');
+      return [];
+    }
   }
 
   // === حذف وإضافة دكاترة (للأدمن أو التحديث) ===

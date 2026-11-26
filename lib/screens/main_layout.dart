@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart'; // مكتبة الحفظ الدائم
 import 'package:path/path.dart' hide context; // عشان نتعامل مع المسارات
 import 'package:firebase_storage/firebase_storage.dart';
@@ -18,6 +17,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
 import '../services/database_helper.dart';
 import '../services/auth_service.dart';
+import '../widgets/neutral_avatar.dart';
 import '../services/appointment_service.dart';
 import '../models/appointment_model.dart' as model;
 import 'package:intl/intl.dart';
@@ -33,7 +33,11 @@ import 'blog_screens.dart';
 import '../services/app_notification_service.dart';
 import '../services/medication_tracking_service.dart';
 import '../services/hybrid_doctor_service.dart';
+import '../utils/map_launcher.dart';
 import '../services/doctor_service.dart';
+import '../models/chat.dart';
+import 'chat/chat_screen.dart';
+import 'medical_records_screen.dart';
 import 'donations/donation_feed_screen.dart';
 import 'donations/add_donation_screen.dart';
 
@@ -225,96 +229,96 @@ class _MainLayoutState extends State<MainLayout> {
                     vertical: 8,
                   ),
                   child: SizedBox(
-                    height:
-                        56, // Fixed height to prevent unbounded constraints in MultiChildLayoutDelegate
-                    child: GNav(
-                      rippleColor: const Color(
-                        0xFF10B981,
-                      ).withValues(alpha: 0.15),
-                      hoverColor: const Color(
-                        0xFF10B981,
-                      ).withValues(alpha: 0.08),
-                      gap: 6,
-                      activeColor: Colors.white,
-                      iconSize: 22,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 12,
+                    height: 56, // Fixed height to prevent unbounded constraints in MultiChildLayoutDelegate
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 650),
+                        child: GNav(
+                          rippleColor: const Color(0xFF10B981).withValues(alpha: 0.15),
+                          hoverColor: const Color(0xFF10B981).withValues(alpha: 0.08),
+                          gap: 6,
+                          activeColor: Colors.white,
+                          iconSize: 22,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 12,
+                          ),
+                          duration: const Duration(milliseconds: 350),
+                          tabBackgroundColor: const Color(0xFF10B981),
+                          tabBackgroundGradient: const LinearGradient(
+                            colors: [Color(0xFF10B981), Color(0xFF059669)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF64748B)
+                              : const Color(0xFF94A3B8),
+                          tabs: [
+                            GButton(
+                              icon: Icons.home_rounded,
+                              text: isArabic ? 'الرئيسية' : 'Home',
+                              textStyle: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            GButton(
+                              icon: Icons.calendar_month_rounded,
+                              text: isArabic ? 'مواعيدي' : 'Schedule',
+                              textStyle: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            GButton(
+                              icon: Icons.health_and_safety_rounded,
+                              text: isArabic ? 'صحتي' : 'Health',
+                              textStyle: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            GButton(
+                              icon: Icons.person_rounded,
+                              text: isArabic ? 'حسابي' : 'Profile',
+                              textStyle: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                          selectedIndex: _currentIndex,
+                          onTabChange: (index) {
+                            HapticFeedback.lightImpact();
+                            if (index == 1) {
+                              setState(() => _scheduleKey = UniqueKey());
+                            }
+                            if (index == 0 && _currentIndex == 0) {
+                              if (_homeScrollController.hasClients) {
+                                _homeScrollController.animateTo(
+                                  0.0,
+                                  duration: const Duration(milliseconds: 500),
+                                  curve: Curves.easeInOut,
+                                );
+                              }
+                            } else {
+                              setState(() => _currentIndex = index);
+                            }
+                          },
+                        ),
                       ),
-                      duration: const Duration(milliseconds: 350),
-                      tabBackgroundColor: const Color(0xFF10B981),
-                      tabBackgroundGradient: const LinearGradient(
-                        colors: [Color(0xFF10B981), Color(0xFF059669)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFF64748B)
-                          : const Color(0xFF94A3B8),
-                      tabs: [
-                        GButton(
-                          icon: Icons.home_rounded,
-                          text: isArabic ? 'الرئيسية' : 'Home',
-                          textStyle: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                        GButton(
-                          icon: Icons.calendar_month_rounded,
-                          text: isArabic ? 'مواعيدي' : 'Schedule',
-                          textStyle: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                        GButton(
-                          icon: Icons.health_and_safety_rounded,
-                          text: isArabic ? 'صحتي' : 'Health',
-                          textStyle: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                        GButton(
-                          icon: Icons.person_rounded,
-                          text: isArabic ? 'حسابي' : 'Profile',
-                          textStyle: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                      selectedIndex: _currentIndex,
-                      onTabChange: (index) {
-                        HapticFeedback.lightImpact();
-                        if (index == 1) {
-                          setState(() => _scheduleKey = UniqueKey());
-                        }
-                        if (index == 0 && _currentIndex == 0) {
-                          if (_homeScrollController.hasClients) {
-                            _homeScrollController.animateTo(
-                              0.0,
-                              duration: const Duration(milliseconds: 500),
-                              curve: Curves.easeInOut,
-                            );
-                          }
-                        } else {
-                          setState(() => _currentIndex = index);
-                        }
-                      },
-                    ), // end of GNav
-                  ), // end of SizedBox
-                ), // end of Padding
-              ), // end of SafeArea
-            ), // end of Container
-          ), // end of BackdropFilter
-        ), // end of ClipRect
-      ), // end of Scaffold
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     ); // end of Directionality
   }
 }
@@ -485,14 +489,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (mounted) {
         setState(() {
-          _activeCategories = active;
+          _activeCategories = active.isNotEmpty ? active : _allCategories;
           _isCategoriesLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _activeCategories = [];
+          _activeCategories = _allCategories;
           _isCategoriesLoading = false;
         });
       }
@@ -528,7 +532,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: () async {},
+        onRefresh: () async {
+          await _loadActiveCategories();
+        },
         child: CustomScrollView(
           controller: widget.scrollController,
           slivers: [
@@ -606,23 +612,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ? const Color(0xFF0B1120)
                                   : Colors.white,
                             ),
-                            child: CircleAvatar(
+                            child: NeutralAvatar(
+                              photoUrl: widget.profileImage,
                               radius: 24,
-                              backgroundColor: Colors.transparent,
-                              backgroundImage: (widget.profileImage != null &&
-                                      widget.profileImage!.startsWith('http'))
-                                  ? CachedNetworkImageProvider(
-                                      widget.profileImage!,
-                                    )
-                                  : (!kIsWeb &&
-                                          widget.profileImage != null &&
-                                          File(widget.profileImage!)
-                                              .existsSync())
-                                      ? FileImage(File(widget.profileImage!))
-                                          as ImageProvider
-                                      : const AssetImage(
-                                          'assets/images/doctor_big_preview.png',
-                                        ),
                             ),
                           ),
                         ),
@@ -1489,14 +1481,17 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 10),
         GestureDetector(
           onTap: () async {
-            // Open Google Maps
-            const url = 'https://maps.app.goo.gl/UqipS68RxL3mjztk6';
-            if (await canLaunchUrl(Uri.parse(url))) {
-              await launchUrl(
-                Uri.parse(url),
-                mode: LaunchMode.externalApplication,
-              );
-            }
+            // Open Map Picker (Apple Maps on iOS / Google Maps)
+            await MapLauncherHelper.showMapPicker(
+              context,
+              latitude: 29.9886163,
+              longitude: 30.9318835,
+              title: isArabic
+                  ? 'المراكز الطبية والمستشفيات'
+                  : 'Medical Centers & Hospital',
+              googleUrl: 'https://maps.app.goo.gl/UqipS68RxL3mjztk6',
+              isArabic: isArabic,
+            );
           },
           child: Container(
             height: 150,
@@ -1568,7 +1563,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const Icon(Icons.map, size: 16, color: Colors.blue),
                         const SizedBox(width: 8),
                         Text(
-                          isArabic ? 'عرض على الخريطة' : 'View on Google Maps',
+                          isArabic ? 'عرض الموقع والاتجاهات' : 'View Location & Directions',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
@@ -3056,118 +3051,98 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // === دالة رفع الملفات الطبية (PDF / صور) ===
-  Future<void> _pickMedicalRecord() async {
+  // === دالة حذف الصورة الشخصية نهائياً لـ Firebase Storage و Firestore ===
+  Future<void> _deleteImage() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'jpg', 'png', 'jpeg'],
-      );
-
-      if (result != null) {
-        PlatformFile file = result.files.first;
-        File fileToUpload = File(file.path!);
-        String fileName = file.name;
-
-        // 1. إظهار لودينج
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
                   ),
-                  const SizedBox(width: 15),
-                  Text(isArabic ? "جاري الرفع..." : "Uploading..."),
-                ],
-              ),
-              duration: const Duration(minutes: 1), // مدة طويلة لحد ما يخلص
-            ),
-          );
-        }
-
-        // 2. الرفع لـ Firebase Storage
-        try {
-          final user = FirebaseAuth.instance.currentUser;
-          if (user == null) throw Exception("User not logged in");
-
-          final storageRef = FirebaseStorage.instance.ref().child(
-            'uploads/${user.uid}/$fileName',
-          );
-          
-          String ext = extension(fileName).replaceAll('.', '').toLowerCase();
-          String contentType = 'application/octet-stream';
-          if (ext == 'pdf') {
-            contentType = 'application/pdf';
-          } else if (ext == 'png') {
-            contentType = 'image/png';
-          } else if (ext == 'jpg' || ext == 'jpeg') {
-            contentType = 'image/jpeg';
-          }
-          
-          await storageRef.putFile(
-            fileToUpload,
-            SettableMetadata(contentType: contentType),
-          );
-          String downloadUrl = await storageRef.getDownloadURL();
-
-          // 3. حفظ الرابط في Firestore
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .collection('medical_records')
-              .add({
-                'name': fileName,
-                'url': downloadUrl,
-                'type': extension(fileName).replaceAll('.', ''),
-                'date': DateTime.now().toIso8601String(),
-              });
-
-          // 4. رسالة نجاح
-          if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).hideCurrentSnackBar(); // نخفي اللودينج
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  isArabic ? "تم الرفع بنجاح ✅" : "Upload Successful ✅",
                 ),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(isArabic ? "فشل الرفع: $e" : "Upload Failed: $e"),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
-      } else {
-        // المستخدم لغى الاختيار
+                const SizedBox(width: 15),
+                Text(isArabic ? "جاري حذف الصورة..." : "Removing photo..."),
+              ],
+            ),
+            duration: const Duration(minutes: 1),
+          ),
+        );
+      }
+
+      final authService = AuthService();
+      await authService.removeProfilePhoto();
+      widget.onImageChanged("");
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isArabic ? "تم حذف الصورة بنجاح ✅" : "Photo removed successfully ✅",
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isArabic ? "حدث خطأ: $e" : "Error: $e"),
+            content: Text(isArabic ? "فشل الحذف: $e" : "Removal failed: $e"),
             backgroundColor: Colors.red,
           ),
         );
       }
     }
+  }
+
+  void _showPhotoOptions() {
+    final bool hasImage = widget.profileImage != null && widget.profileImage!.isNotEmpty;
+    final bool isDarkMode = widget.isDark == true;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_rounded, color: Color(0xFF10B981)),
+                title: Text(isArabic ? "اختيار من المعرض" : "Choose from Gallery"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage();
+                },
+              ),
+              if (hasImage)
+                ListTile(
+                  leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
+                  title: Text(
+                    isArabic ? "حذف الصورة الحالية" : "Remove Profile Photo",
+                    style: const TextStyle(color: Colors.redAccent),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _deleteImage();
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // === DELETE ACCOUNT FEATURE ===
@@ -3604,20 +3579,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ? const Color(0xFF1E293B)
                                 : Colors.white,
                           ),
-                          child: CircleAvatar(
+                          child: NeutralAvatar(
+                            photoUrl: widget.profileImage,
                             radius: 56,
-                            backgroundColor: Colors.transparent,
-                            backgroundImage: (widget.profileImage != null &&
-                                    widget.profileImage!.startsWith('http'))
-                                ? CachedNetworkImageProvider(widget.profileImage!)
-                                : (widget.profileImage != null &&
-                                        !kIsWeb &&
-                                        File(widget.profileImage!).existsSync())
-                                    ? FileImage(File(widget.profileImage!))
-                                        as ImageProvider
-                                    : const AssetImage(
-                                        'assets/images/doctor_big_preview.png',
-                                      ),
                           ),
                         ),
                       ),
@@ -3625,7 +3589,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         bottom: 4,
                         right: 4,
                         child: GestureDetector(
-                          onTap: _pickImage,
+                          onTap: _showPhotoOptions,
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
@@ -3776,8 +3740,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildSettingsCard([
                     _buildProfileOption(
                       Icons.upload_file_rounded,
-                      isArabic ? 'رفع ملفات طبية' : 'Upload Medical Records',
-                      _pickMedicalRecord,
+                      isArabic ? 'الملفات الطبية' : 'Medical Records',
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const MedicalRecordsScreen(),
+                        ),
+                      ),
                       isDark: isDark,
                       color: const Color(0xFFF59E0B),
                     ),
@@ -4390,37 +4359,201 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
 class NotificationScreen extends StatelessWidget {
   const NotificationScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Notifications"), centerTitle: true),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          _buildNotif(
-            "Appointment Confirmed",
-            "Your appointment is confirmed.",
-            Icons.check_circle,
-            Colors.green,
-          ),
-          _buildNotif(
-            "New Update",
-            "Check out new features.",
-            Icons.info,
-            Colors.blue,
-          ),
-        ],
-      ),
-    );
-  }
+    final user = FirebaseAuth.instance.currentUser;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isArabic = Directionality.of(context) == ui.TextDirection.rtl;
 
-  Widget _buildNotif(String title, String body, IconData icon, Color color) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 15),
-      child: ListTile(
-        leading: Icon(icon, color: color, size: 35),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(body),
+    if (user == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(isArabic ? "الإشعارات" : "Notifications"),
+          centerTitle: true,
+        ),
+        body: Center(
+          child: Text(isArabic ? "يرجى تسجيل الدخول أولاً" : "Please log in first"),
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: Text(
+          isArabic ? "مركز الإشعارات" : "Notification Center",
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('notifications')
+            .where('recipientId', isEqualTo: user.uid)
+            .orderBy('createdAt', descending: true)
+            .limit(50)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            debugPrint('Error fetching notifications stream: ${snapshot.error}');
+            return Center(
+              child: Text(
+                isArabic ? "خطأ في تحميل الإشعارات" : "Error loading notifications",
+                style: const TextStyle(color: Colors.redAccent),
+              ),
+            );
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFF10B981)),
+            );
+          }
+
+          final docs = snapshot.data?.docs ?? [];
+          if (docs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.notifications_none_rounded,
+                    size: 70,
+                    color: isDark ? Colors.white24 : Colors.black12,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    isArabic ? "لا توجد إشعارات حالياً" : "No notifications yet",
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final doc = docs[index];
+              final data = doc.data() as Map<String, dynamic>;
+
+              final title = (data['title'] ?? (isArabic ? 'إشعار جديد' : 'Notification')).toString();
+              final body = (data['body'] ?? '').toString();
+              final type = (data['type'] ?? '').toString();
+              final status = (data['status'] ?? 'unread').toString();
+              final isUnread = status == 'unread';
+
+              IconData icon = Icons.notifications_rounded;
+              Color color = const Color(0xFF3B82F6);
+
+              if (type == 'new_message' || type == 'chat') {
+                icon = Icons.chat_bubble_rounded;
+                color = const Color(0xFF10B981);
+              } else if (type == 'appointment_confirmed' || type == 'appointment_accepted') {
+                icon = Icons.check_circle_rounded;
+                color = const Color(0xFF10B981);
+              } else if (type == 'appointment_rejected' || type == 'appointment_cancelled') {
+                icon = Icons.cancel_rounded;
+                color = const Color(0xFFEF4444);
+              } else if (type == 'medication_added' || type == 'medication_updated' || type == 'reminder') {
+                icon = Icons.medication_rounded;
+                color = const Color(0xFF8B5CF6);
+              } else if (type == 'emergency') {
+                icon = Icons.warning_rounded;
+                color = const Color(0xFFEF4444);
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: isUnread
+                      ? (isDark ? const Color(0xFF1E293B) : Colors.white)
+                      : (isDark ? const Color(0xFF0F172A).withValues(alpha: 0.5) : Colors.grey[100]),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isUnread
+                        ? color.withValues(alpha: 0.3)
+                        : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[200]!),
+                  ),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: color, size: 24),
+                  ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontWeight: isUnread ? FontWeight.w800 : FontWeight.w600,
+                            fontSize: 15,
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                      if (isUnread)
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                        ),
+                    ],
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      body,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.grey[400] : Colors.grey[700],
+                      ),
+                    ),
+                  ),
+                  onTap: () async {
+                    if (isUnread) {
+                      FirebaseFirestore.instance
+                          .collection('notifications')
+                          .doc(doc.id)
+                          .update({'status': 'read'}).catchError((_) {});
+                    }
+
+                    final chatId = (data['chatId'] ?? '').toString();
+                    if ((type == 'new_message' || type == 'chat') && chatId.isNotEmpty) {
+                      final chatDoc = await FirebaseFirestore.instance.collection('chats').doc(chatId).get();
+                      if (chatDoc.exists && context.mounted) {
+                        final chatObj = Chat.fromFirestore(chatDoc);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChatScreen(
+                              chat: chatObj,
+                              isDoctorView: false,
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -5051,7 +5184,7 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
                   const SizedBox(height: 28),
                   // Health Tips
                   _sectionTitle(
-                    isArabic ? 'نصائح صحية' : 'Health Tips',
+                    isArabic ? 'نصائح صحية ومراجع علمية' : 'Health Tips & References',
                     isDark,
                   ),
                   const SizedBox(height: 12),
@@ -5060,27 +5193,72 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
                     const Color(0xFF0EA5E9),
                     isArabic ? 'اشرب الماء بانتظام' : 'Stay Hydrated',
                     isArabic
-                        ? 'احرص على شرب 8 أكواب ماء يومياً.'
-                        : 'Drink 8 glasses of water daily.',
+                        ? 'احرص على شرب 8 أكواب ماء يومياً للحفاظ على ترطيب الجسم ووظائفه الحيوية.'
+                        : 'Drink 8 glasses of water daily for optimal hydration and cellular function.',
                     isDark,
+                    sourceName: 'Mayo Clinic',
+                    sourceUrl: 'https://www.mayoclinic.org/healthy-lifestyle/nutrition-and-healthy-eating/in-depth/water/art-20044256',
                   ),
                   _tipCard(
                     Icons.bedtime_rounded,
                     const Color(0xFF8B5CF6),
                     isArabic ? 'نوم كافٍ' : 'Get Enough Sleep',
                     isArabic
-                        ? '7-8 ساعات نوم يومياً تساعد الجسم على التعافي.'
-                        : '7-8 hours of sleep nightly helps recovery.',
+                        ? '7-8 ساعات نوم يومياً للبالغين تساعد الجسم على التعافي وتعزيز المناعة.'
+                        : '7-8 hours of sleep nightly helps physical recovery and supports immune health.',
                     isDark,
+                    sourceName: 'CDC (Centers for Disease Control)',
+                    sourceUrl: 'https://www.cdc.gov/sleep/about_sleep/how_much_sleep.html',
                   ),
                   _tipCard(
                     Icons.directions_walk_rounded,
                     const Color(0xFF10B981),
                     isArabic ? 'النشاط البدني' : 'Stay Active',
                     isArabic
-                        ? '30 دقيقة مشي يومياً تحسّن صحة القلب.'
-                        : '30 min of walking daily improves heart health.',
+                        ? '150 دقيقة من النشاط البدني المعتدل أسبوعياً (أو 30 دقيقة مشي يومياً) تحسّن صحة القلب.'
+                        : '150 minutes of moderate physical activity weekly improves cardiovascular health.',
                     isDark,
+                    sourceName: 'WHO (World Health Organization)',
+                    sourceUrl: 'https://www.who.int/news-room/fact-sheets/detail/physical-activity',
+                  ),
+                  const SizedBox(height: 10),
+                  // Medical Disclaimer Footer
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF1E293B).withValues(alpha: 0.5)
+                          : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.black.withValues(alpha: 0.05),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 16,
+                          color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            isArabic
+                                ? 'إخلاء مسؤولية طبي: هذه النصائح للأغراض التثقيفية فقط وتستند لمصادر طبية موثوقة (CDC, WHO, Mayo Clinic)، ولا تغني عن الاستشارة الطبية.'
+                                : 'Medical Disclaimer: Health tips are for educational purposes based on authoritative sources (CDC, WHO, Mayo Clinic) and do not substitute professional medical advice.',
+                            style: TextStyle(
+                              fontSize: 11,
+                              height: 1.4,
+                              color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ]),
               ),
@@ -5674,8 +5852,10 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
     Color color,
     String title,
     String body,
-    bool isDark,
-  ) => Container(
+    bool isDark, {
+    String? sourceName,
+    String? sourceUrl,
+  }) => Container(
     margin: const EdgeInsets.only(bottom: 12),
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
@@ -5690,42 +5870,91 @@ class _YourHealthScreenState extends State<YourHealthScreen> {
         ),
       ],
     ),
-    child: Row(
+    child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: color, size: 22),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    body,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+        if (sourceName != null && sourceUrl != null) ...[
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.only(left: 46),
+            child: InkWell(
+              onTap: () async {
+                final uri = Uri.parse(sourceUrl);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.menu_book_rounded,
+                      size: 13,
+                      color: const Color(0xFF0EA5E9),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      isArabic ? 'المصدر: $sourceName' : 'Source: $sourceName',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0EA5E9),
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.open_in_new_rounded,
+                      size: 11,
+                      color: Color(0xFF0EA5E9),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                body,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.4,
-                  color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ],
     ),
   );

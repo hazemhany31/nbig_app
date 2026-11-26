@@ -33,84 +33,123 @@ class HybridDoctorService {
     }
   }
 
-  /// جلب جميع الدكاترة
+  /// جلب جميع الدكاترة مع Fallback تلقائي لـ SQLite في حال تعذر Firestore
   Future<List<Doctor>> getDoctors({String? category}) async {
-    List<Doctor> doctors;
+    List<Doctor> doctors = [];
     if (_useFirestore) {
-      if (category == null || category == 'All') {
-        doctors = await DoctorCacheService().getDoctors();
-      } else {
-        doctors = await DoctorCacheService().getDoctorsByCategory(
-            category, DoctorService.categoryKeywords);
+      try {
+        if (category == null || category == 'All') {
+          doctors = await DoctorCacheService().getDoctors();
+        } else {
+          doctors = await DoctorCacheService().getDoctorsByCategory(
+              category, DoctorService.categoryKeywords);
+        }
+      } catch (_) {
+        doctors = [];
       }
-    } else {
-      doctors = await _sqliteDb.getDoctors(category: category);
     }
 
-    // الدمج مع المفضلات المحلية دائماً لضمان المزامنة
-    final favIds = await _sqliteDb.getFavoriteIds();
-    for (var doc in doctors) {
-      doc.isFavorite = favIds.contains(doc.id);
+    // استرجاع احتياطي تلقائي من قاعدة البيانات المحلية عند عدم توفر بيانات Firestore
+    if (doctors.isEmpty) {
+      try {
+        doctors = await _sqliteDb.getDoctors(category: category);
+      } catch (_) {
+        doctors = [];
+      }
     }
+
+    // الدمج مع المفضلات المحلية بأمان
+    try {
+      final favIds = await _sqliteDb.getFavoriteIds();
+      for (var doc in doctors) {
+        doc.isFavorite = favIds.contains(doc.id);
+      }
+    } catch (_) {}
+
     return doctors;
   }
 
-  /// جلب دكتور معين
+  /// جلب دكتور معين مع Fallback
   Future<Doctor?> getDoctorById(String doctorId) async {
     Doctor? doc;
     if (_useFirestore) {
-      final doctors = await DoctorCacheService().getDoctors();
       try {
-        doc = doctors.firstWhere((d) => d.id == doctorId);
-      } catch (e) {
-        doc = null;
-      }
-    } else {
-      final doctors = await _sqliteDb.getDoctors();
+        final doctors = await DoctorCacheService().getDoctors();
+        doc = doctors.where((d) => d.id == doctorId).firstOrNull;
+      } catch (_) {}
+    }
+
+    if (doc == null) {
       try {
-        doc = doctors.firstWhere((d) => d.id == doctorId);
-      } catch (e) {
-        doc = null;
-      }
+        final doctors = await _sqliteDb.getDoctors();
+        doc = doctors.where((d) => d.id == doctorId).firstOrNull;
+      } catch (_) {}
     }
 
     if (doc != null) {
-      final favIds = await _sqliteDb.getFavoriteIds();
-      doc.isFavorite = favIds.contains(doc.id);
+      try {
+        final favIds = await _sqliteDb.getFavoriteIds();
+        doc.isFavorite = favIds.contains(doc.id);
+      } catch (_) {}
     }
     return doc;
   }
 
-  /// البحث عن دكاترة
+  /// البحث عن دكاترة مع Fallback
   Future<List<Doctor>> searchDoctors(String keyword) async {
-    List<Doctor> doctors;
+    List<Doctor> doctors = [];
     if (_useFirestore) {
-      doctors = await DoctorCacheService().searchDoctors(keyword);
-    } else {
-      doctors = await _sqliteDb.searchDoctors(keyword);
+      try {
+        doctors = await DoctorCacheService().searchDoctors(keyword);
+      } catch (_) {
+        doctors = [];
+      }
     }
 
-    final favIds = await _sqliteDb.getFavoriteIds();
-    for (var doc in doctors) {
-      doc.isFavorite = favIds.contains(doc.id);
+    if (doctors.isEmpty) {
+      try {
+        doctors = await _sqliteDb.searchDoctors(keyword);
+      } catch (_) {
+        doctors = [];
+      }
     }
+
+    try {
+      final favIds = await _sqliteDb.getFavoriteIds();
+      for (var doc in doctors) {
+        doc.isFavorite = favIds.contains(doc.id);
+      }
+    } catch (_) {}
+
     return doctors;
   }
 
   /// جلب التخصصات المتاحة
   Future<List<String>> getSpecialties() async {
+    List<Doctor> doctors = [];
     if (_useFirestore) {
-      final doctors = await DoctorCacheService().getDoctors();
-      final specialties = doctors.map((d) => d.specialty).toSet().toList();
-      specialties.sort();
-      return specialties;
-    } else {
-      // جلب من SQLite
-      final doctors = await _sqliteDb.getDoctors();
-      final specialties = doctors.map((d) => d.specialty).toSet().toList();
-      specialties.sort();
-      return specialties;
+      try {
+        doctors = await DoctorCacheService().getDoctors();
+      } catch (_) {
+        doctors = [];
+      }
     }
+
+    if (doctors.isEmpty) {
+      try {
+        doctors = await _sqliteDb.getDoctors();
+      } catch (_) {
+        doctors = [];
+      }
+    }
+
+    final specialties = doctors
+        .map((d) => d.specialty)
+        .where((s) => s.trim().isNotEmpty)
+        .toSet()
+        .toList();
+    specialties.sort();
+    return specialties;
   }
 
   /// Stream للدكاترة (فقط عند استخدام Firestore)

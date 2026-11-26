@@ -4,9 +4,70 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../models/medical_record.dart';
 
+class MedicalRecordDownloadException implements Exception {
+  final String code;
+  final String message;
+
+  const MedicalRecordDownloadException(this.code, this.message);
+
+  @override
+  String toString() => 'MedicalRecordDownloadException($code): $message';
+}
+
+class MedicalRecordDeleteException implements Exception {
+  final String code;
+  final String message;
+  final bool storageDeleted;
+  final bool firestoreDeleted;
+  final Object? cause;
+
+  const MedicalRecordDeleteException(
+    this.code,
+    this.message, {
+    required this.storageDeleted,
+    required this.firestoreDeleted,
+    this.cause,
+  });
+
+  @override
+  String toString() =>
+      'MedicalRecordDeleteException($code, storageDeleted=$storageDeleted, firestoreDeleted=$firestoreDeleted): $message';
+}
+
 class MedicalRecordsService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final FirebaseFirestore? _injectedFirestore;
+  final FirebaseStorage? _injectedStorage;
+  final Future<void> Function(String fileUrl, String? storagePath)?
+      _storageDeleteOverride;
+  final Future<void> Function(String patientId, String recordId)?
+      _firestoreDeleteOverride;
+  final Future<void> Function(String patientId, String recordId)?
+      _firestoreMarkPendingOverride;
+  final Duration _retryDelay;
+
+  MedicalRecordsService({
+    FirebaseFirestore? firestore,
+    FirebaseStorage? storage,
+    @visibleForTesting
+    Future<void> Function(String fileUrl, String? storagePath)?
+        storageDeleteOverride,
+    @visibleForTesting
+    Future<void> Function(String patientId, String recordId)?
+        firestoreDeleteOverride,
+    @visibleForTesting
+    Future<void> Function(String patientId, String recordId)?
+        firestoreMarkPendingOverride,
+    @visibleForTesting Duration retryDelay = const Duration(milliseconds: 250),
+  })  : _injectedFirestore = firestore,
+        _injectedStorage = storage,
+        _storageDeleteOverride = storageDeleteOverride,
+        _firestoreDeleteOverride = firestoreDeleteOverride,
+        _firestoreMarkPendingOverride = firestoreMarkPendingOverride,
+        _retryDelay = retryDelay;
+
+  FirebaseFirestore get _firestore =>
+      _injectedFirestore ?? FirebaseFirestore.instance;
+  FirebaseStorage get _storage => _injectedStorage ?? FirebaseStorage.instance;
 
   Future<void> uploadMedicalRecord({
     required String patientId,
@@ -59,5 +120,223 @@ class MedicalRecordsService {
         .doc(patientId)
         .collection('medical_records')
         .add(record.toMap());
+  }
+
+  /// حذف سجل طبي ومزامنة الحذف مع Firebase Storage مع معالجة الفشل الجزئي وإعادة المحاولة
+  Future<void> deleteMedicalRecord({
+    required String patientId,
+    required String recordId,
+    required String fileUrl,
+    String? storagePath,
+    int maxAttempts = 2,
+  }) async {
+    final trimmedUrl = fileUrl.trim();
+    final trimmedPath = storagePath?.trim() ?? '';
+    final hasStorageRef = trimmedPath.isNotEmpty ||
+        (trimmedUrl.isNotEmpty && trimmedUrl.startsWith('http'));
+
+    bool storageDeleted = !hasStorageRef;
+
+    if (hasStorageRef) {
+      Object? lastStorageError;
+      for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          if (_storageDeleteOverride != null) {
+            await _storageDeleteOverride(trimmedUrl, trimmedPath.isEmpty ? null : trimmedPath);
+          } else {
+            final ref = trimmedPath.isNotEmpty
+                ? _storage.ref(trimmedPath)
+                : _storage.refFromURL(trimmedUrl);
+            await ref.delete();
+          }
+          storageDeleted = true;
+          debugPrint('🗑️ Storage file deleted (attempt $attempt): ${trimmedPath.isNotEmpty ? trimmedPath : trimmedUrl}');
+          break;
+        } on FirebaseException catch (e) {
+          if (e.code == 'object-not-found') {
+            // File already deleted in a previous partial attempt; safe to clean up Firestore doc
+            storageDeleted = true;
+            debugPrint('ℹ️ Storage file already absent (object-not-found); proceeding to Firestore delete.');
+            break;
+          }
+          lastStorageError = e;
+          debugPrint('⚠️ Storage delete attempt $attempt/$maxAttempts failed: ${e.code} ${e.message}');
+        } catch (e) {
+          lastStorageError = e;
+          debugPrint('⚠️ Storage delete attempt $attempt/$maxAttempts failed: $e');
+        }
+
+        if (attempt < maxAttempts && _retryDelay > Duration.zero) {
+          await Future<void>.delayed(_retryDelay);
+        }
+      }
+
+      if (!storageDeleted) {
+        // Keep Firestore document intact so the file reference is not lost
+        throw MedicalRecordDeleteException(
+          'storage-delete-failed',
+          'Failed to delete file from Storage. Record metadata was preserved.',
+          storageDeleted: false,
+          firestoreDeleted: false,
+          cause: lastStorageError,
+        );
+      }
+    }
+
+    // 2. Delete record metadata from Firestore (with retry)
+    await _deleteFirestoreRecordWithRetry(
+      patientId: patientId,
+      recordId: recordId,
+      storageDeleted: storageDeleted,
+      maxAttempts: maxAttempts,
+      markPendingOnFailure: true,
+    );
+  }
+
+  /// إكمال حذف سجل طبي معلّق (تم حذف ملفه من Storage مسبقاً وفشل حذف مستند Firestore)
+  Future<void> completePendingDelete({
+    required String patientId,
+    required MedicalRecord record,
+    int maxAttempts = 2,
+  }) async {
+    if (!record.pendingDelete) {
+      await deleteMedicalRecord(
+        patientId: patientId,
+        recordId: record.id,
+        fileUrl: record.url,
+        maxAttempts: maxAttempts,
+      );
+      return;
+    }
+
+    await _deleteFirestoreRecordWithRetry(
+      patientId: patientId,
+      recordId: record.id,
+      storageDeleted: true,
+      maxAttempts: maxAttempts,
+      markPendingOnFailure: false,
+    );
+  }
+
+  Future<void> _deleteFirestoreRecordWithRetry({
+    required String patientId,
+    required String recordId,
+    required bool storageDeleted,
+    required int maxAttempts,
+    required bool markPendingOnFailure,
+  }) async {
+    Object? lastFirestoreError;
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        if (_firestoreDeleteOverride != null) {
+          await _firestoreDeleteOverride(patientId, recordId);
+        } else {
+          await _firestore
+              .collection('users')
+              .doc(patientId)
+              .collection('medical_records')
+              .doc(recordId)
+              .delete();
+        }
+        debugPrint('🗑️ Firestore record document deleted (attempt $attempt): $recordId');
+        return;
+      } catch (e) {
+        lastFirestoreError = e;
+        debugPrint('⚠️ Firestore delete attempt $attempt/$maxAttempts failed: $e');
+        if (attempt < maxAttempts && _retryDelay > Duration.zero) {
+          await Future<void>.delayed(_retryDelay);
+        }
+      }
+    }
+
+    if (markPendingOnFailure) {
+      // Partial failure: Storage file was deleted, but Firestore doc delete failed.
+      // Mark document as pending cleanup (best-effort) so retry can recover cleanly, and surface error.
+      try {
+        if (_firestoreMarkPendingOverride != null) {
+          await _firestoreMarkPendingOverride(patientId, recordId);
+        } else {
+          await _firestore
+              .collection('users')
+              .doc(patientId)
+              .collection('medical_records')
+              .doc(recordId)
+              .update({
+            'pendingDelete': true,
+            'storageDeleted': true,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      } catch (_) {
+        // Best-effort recovery marker; still throw explicit partial-failure error below
+      }
+    }
+
+    throw MedicalRecordDeleteException(
+      'firestore-delete-failed',
+      'Storage file deleted, but failed to remove record metadata from Firestore. Please retry.',
+      storageDeleted: storageDeleted,
+      firestoreDeleted: false,
+      cause: lastFirestoreError,
+    );
+  }
+
+  /// تنزيل السجل الطبي عبر Firebase Storage SDK بجلسة موثقة
+  Future<Uint8List> downloadMedicalRecordBytes({
+    required String url,
+    String? storagePath,
+    int maxBytes = 15 * 1024 * 1024, // 15 MB safety limit
+  }) async {
+    final Reference ref;
+    try {
+      if (storagePath != null && storagePath.trim().isNotEmpty) {
+        ref = _storage.ref(storagePath.trim());
+      } else if (url.trim().isNotEmpty) {
+        ref = _storage.refFromURL(url.trim());
+      } else {
+        throw const MedicalRecordDownloadException(
+          'invalid-ref',
+          'Invalid file reference.',
+        );
+      }
+    } catch (e) {
+      if (e is MedicalRecordDownloadException) rethrow;
+      throw MedicalRecordDownloadException('invalid-ref', 'Invalid URL: $e');
+    }
+
+    try {
+      final metadata = await ref.getMetadata();
+      final size = metadata.size ?? 0;
+      if (size > maxBytes) {
+        final maxMb = (maxBytes / (1024 * 1024)).toStringAsFixed(0);
+        throw MedicalRecordDownloadException(
+          'too-large',
+          'File size exceeds $maxMb MB limit.',
+        );
+      }
+
+      final bytes = await ref.getData(maxBytes);
+      if (bytes == null || bytes.isEmpty) {
+        throw const MedicalRecordDownloadException('empty', 'Downloaded file is empty.');
+      }
+      return bytes;
+    } on FirebaseException catch (e) {
+      if (e.code == 'unauthorized' || e.code == 'permission-denied') {
+        throw const MedicalRecordDownloadException(
+          'unauthorized',
+          'Permission denied to access this medical record.',
+        );
+      }
+      if (e.code == 'object-not-found') {
+        throw const MedicalRecordDownloadException(
+          'not-found',
+          'Medical record file not found.',
+        );
+      }
+      throw MedicalRecordDownloadException(
+        e.code,
+        e.message ?? 'Failed to download file.',
+      );
+    }
   }
 }

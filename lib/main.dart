@@ -47,8 +47,19 @@ void main() async {
   );
 
   if (!kIsWeb) {
-    await NotificationService().init();
-    await PushNotificationService().initialize();
+    try {
+      await NotificationService().init();
+    } catch (e) {
+      debugPrint('⚠️ NotificationService init error: $e');
+    }
+
+    try {
+      PushNotificationService().initialize().catchError((e) {
+        debugPrint('⚠️ PushNotificationService initialize error: $e');
+      });
+    } catch (e) {
+      debugPrint('⚠️ PushNotificationService launch error: $e');
+    }
 
     // ابدأ/أوقف الاستماع لإشعارات الشات بناءً على حالة الـ auth
     FirebaseAuth.instance.authStateChanges().listen((user) {
@@ -108,14 +119,7 @@ class _DoctorAppState extends State<DoctorApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'NBIG Health',
-      builder: (context, child) {
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500),
-            child: child!,
-          ),
-        );
-      },
+      builder: (context, child) => child!,
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.light,

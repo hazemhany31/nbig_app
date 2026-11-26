@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/doctor_model.dart';
 
@@ -29,23 +30,35 @@ class DoctorCacheService {
       return List.unmodifiable(_cachedDoctors!);
     }
 
-    // جلب من Firestore مرة واحدة فقط
-    final snapshot =
-        await FirebaseFirestore.instance.collection('doctors').get(
-      // الاستفادة من الـ offline cache الخاص بـ Firestore إذا كانت الشبكة بطيئة
-      const GetOptions(source: Source.serverAndCache),
-    );
+    try {
+      // جلب من Firestore مع timeout ذكي لتجنب تعليق التطبيق
+      final snapshot = await FirebaseFirestore.instance
+          .collection('doctors')
+          .get(const GetOptions(source: Source.serverAndCache))
+          .timeout(const Duration(seconds: 4));
 
-    _cachedDoctors = snapshot.docs.map((doc) {
-      final data = doc.data();
-      data['id'] = doc.id;
-      data['doctorId'] = doc.id;
-      data['userId'] = data['userId'] ?? doc.id;
-      return Doctor.fromMap(data);
-    }).toList();
+      if (snapshot.docs.isNotEmpty) {
+        _cachedDoctors = snapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          data['doctorId'] = doc.id;
+          data['userId'] = data['userId'] ?? doc.id;
+          return Doctor.fromMap(data);
+        }).toList();
 
-    _lastFetch = DateTime.now();
-    return List.unmodifiable(_cachedDoctors!);
+        _lastFetch = DateTime.now();
+        return List.unmodifiable(_cachedDoctors!);
+      }
+    } catch (e) {
+      debugPrint('⚠️ DoctorCacheService fetch error / timeout: $e');
+    }
+
+    // إذا كان الـ cache القديم موجوداً نرجعه
+    if (_cachedDoctors != null && _cachedDoctors!.isNotEmpty) {
+      return List.unmodifiable(_cachedDoctors!);
+    }
+
+    return [];
   }
 
   /// البحث المحلي في الـ cache (بدون أي Firestore call)

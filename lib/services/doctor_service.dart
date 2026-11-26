@@ -224,4 +224,63 @@ class DoctorService {
       rethrow;
     }
   }
+
+  /// Safe production cleanup utility for `doctors` collection.
+  /// Identifies duplicate documents for the same doctor based on `userId` or `email`,
+  /// retains the official canonical record (doc ID == userId or highest completeness),
+  /// and removes redundant duplicate records without altering valid production data.
+  Future<int> cleanupDuplicateDoctors() async {
+    try {
+      final snapshot = await _firestore.collection('doctors').get();
+      final Map<String, List<QueryDocumentSnapshot>> grouped = {};
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final userId = (data['userId'] ?? '').toString();
+        final email = (data['email'] ?? '').toString().toLowerCase();
+
+        final key = userId.isNotEmpty ? 'uid:$userId' : (email.isNotEmpty ? 'email:$email' : doc.id);
+        grouped.putIfAbsent(key, () => []).add(doc);
+      }
+
+      int removedCount = 0;
+      final batch = _firestore.batch();
+
+      for (var entry in grouped.entries) {
+        final docs = entry.value;
+        if (docs.length > 1) {
+          // Identify canonical document: prefer doc whose ID equals userId or has photoUrl
+          docs.sort((a, b) {
+            final Map<String, dynamic> aData = (a.data() as Map<String, dynamic>?) ?? {};
+            final Map<String, dynamic> bData = (b.data() as Map<String, dynamic>?) ?? {};
+            final aUid = (aData['userId'] ?? '').toString();
+            final bUid = (bData['userId'] ?? '').toString();
+
+            if (a.id == aUid && b.id != bUid) return -1;
+            if (b.id == bUid && a.id != aUid) return 1;
+
+            final aHasPhoto = (aData['photoUrl'] ?? '').toString().isNotEmpty;
+            final bHasPhoto = (bData['photoUrl'] ?? '').toString().isNotEmpty;
+            if (aHasPhoto && !bHasPhoto) return -1;
+            if (bHasPhoto && !aHasPhoto) return 1;
+
+            return 0;
+          });
+
+          // Keep the first (canonical) document, delete remaining duplicates
+          for (int i = 1; i < docs.length; i++) {
+            batch.delete(docs[i].reference);
+            removedCount++;
+          }
+        }
+      }
+
+      if (removedCount > 0) {
+        await batch.commit();
+      }
+      return removedCount;
+    } catch (e) {
+      return 0;
+    }
+  }
 }

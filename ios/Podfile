@@ -45,6 +45,15 @@ post_install do |installer|
       config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
       # Fix objective_c dylib lookup on simulator (including beta runtimes)
       config.build_settings['DEAD_CODE_STRIPPING'] = 'NO'
+      
+      # Permission handler macros
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        'PERMISSION_CAMERA=1',
+        'PERMISSION_PHOTOS=1',
+        'PERMISSION_NOTIFICATIONS=1',
+        'PERMISSION_MICROPHONE=0'
+      ]
     end
   end
 end

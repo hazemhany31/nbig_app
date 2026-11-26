@@ -6,6 +6,7 @@ class MedicalRecord {
   final String url;
   final String type;
   final DateTime date;
+  final bool pendingDelete;
 
   MedicalRecord({
     required this.id,
@@ -13,6 +14,7 @@ class MedicalRecord {
     required this.url,
     required this.type,
     required this.date,
+    this.pendingDelete = false,
   });
 
   factory MedicalRecord.fromFirestore(DocumentSnapshot doc) {
@@ -36,6 +38,7 @@ class MedicalRecord {
       url: map['url'] ?? '',
       type: map['type'] ?? 'unknown',
       date: parsedDate,
+      pendingDelete: map['pendingDelete'] == true,
     );
   }
 

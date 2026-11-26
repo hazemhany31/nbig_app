@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/neutral_avatar.dart';
 import '../../services/auth_service.dart';
 import '../donations/donation_feed_screen.dart';
 import '../../language_config.dart';
@@ -56,10 +57,9 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
                   children: [
                     Stack(
                       children: [
-                        CircleAvatar(
+                        NeutralAvatar(
+                          photoUrl: null,
                           radius: 50,
-                          backgroundColor: const Color(0xFF10B981).withValues(alpha: 0.1),
-                          child: Icon(Icons.person_rounded, size: 50, color: const Color(0xFF10B981)),
                         ),
                         if (_isVerified)
                           Positioned(

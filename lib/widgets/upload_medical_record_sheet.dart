@@ -68,6 +68,15 @@ class _UploadMedicalRecordSheetState extends State<UploadMedicalRecordSheet> {
     }
   }
 
+  void _clearFile() {
+    setState(() {
+      _selectedFile = null;
+      _selectedFileBytes = null;
+      _selectedFileName = null;
+      _fileType = null;
+    });
+  }
+
   Future<void> _upload() async {
     if (_selectedFile == null && _selectedFileBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -228,9 +237,9 @@ class _UploadMedicalRecordSheetState extends State<UploadMedicalRecordSheet> {
               ],
             ),
             const SizedBox(height: 16),
-            if (_selectedFile != null)
+            if (_selectedFile != null || _selectedFileBytes != null)
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: const Color(0xFF10B981).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -251,6 +260,11 @@ class _UploadMedicalRecordSheetState extends State<UploadMedicalRecordSheet> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 20),
+                      onPressed: _clearFile,
+                      tooltip: isArabic ? 'حذف الملف المختار' : 'Remove selected file',
                     ),
                   ],
                 ),
